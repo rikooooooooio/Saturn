@@ -1125,369 +1125,50 @@ TabPets:Button({
     end
 })
 
--- ==================== KILLING ====================
-local killSection = TabKilling:Section({ Title = "Killing", Opened = true })
+-- ==================== ABA KILLING (SIMPLIFICADA E CORRIGIDA) ====================
+local TabKilling = Window:Tab({ Title = "Killing", Icon = "lucide:swords" })
 
-killSection:Paragraph({ Title = "Use Pack Pets For Killing Enhancer" })
-local killPetTypes = {"Mighty Monster", "Wild Wizard"}
-for _, pet in pairs(killPetTypes) do
-    killSection:Button({
-        Title = "Equip For " .. (pet == "Mighty Monster" and "Durability" or "Damage"),
-        Callback = function()
-            unequipAllPets()
-            for _, p in pairs(LocalPlayer.petsFolder.Unique:GetChildren()) do
-                if p.Name == pet then
-                    ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", p)
-                end
-            end
-        end
-    })
-end
+-- Seção principal
+local killSection = TabKilling:Section({ Title = "Combat Options", Opened = true })
 
-killSection:Paragraph({ Title = "----------" })
-
+-- ==================== AUTO PUNCH ====================
 local autoPunch = false
 killSection:Toggle({
     Title = "Auto Punch",
+    Desc = "Ativa socos automáticos",
     Default = false,
     Callback = function(v)
         autoPunch = v
-        if v then
-            local punch = LocalPlayer.Backpack:FindFirstChild("Punch") or LocalPlayer.Character:FindFirstChild("Punch")
-            _G.punchanim = true
-            task.spawn(function()
-                while _G.punchanim do
-                    if punch then
-                        if punch.Parent ~= LocalPlayer.Character then
-                            punch.Parent = LocalPlayer.Character
-                        end
-                        punch:Activate()
-                        wait()
-                    else
-                        _G.punchanim = false
+        task.spawn(function()
+            while autoPunch do
+                local punch = LocalPlayer.Backpack:FindFirstChild("Punch") or LocalPlayer.Character:FindFirstChild("Punch")
+                if punch then
+                    if punch.Parent ~= LocalPlayer.Character then
+                        punch.Parent = LocalPlayer.Character
                     end
+                    punch:Activate()
                 end
-            end)
-        else
-            _G.punchanim = false
-        end
+                LocalPlayer.muscleEvent:FireServer("punch", "leftHand")
+                LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
+                task.wait(0.1)
+            end
+        end)
     end
 })
 
+-- ==================== FAST PUNCH ====================
 local fastPunch = false
+local punchConn = nil
 killSection:Toggle({
     Title = "Fast Punch",
-    Desc = "Sets attackTime to 0",
+    Desc = "Reduz o tempo de ataque do soco",
     Default = false,
     Callback = function(v)
         fastPunch = v
-        local punch = LocalPlayer.Backpack:FindFirstChild("Punch") or LocalPlayer.Character:FindFirstChild("Punch")
-        if punch and punch:FindFirstChild("attackTime") then
-            punch.attackTime.Value = v and 0.0001 or 0.35
-        end
-    end
-})
-
--- Server Hop Killing
-killSection:Button({
-    Title = "Server Hop Killing",
-    Callback = function()
-        -- Load external server hop script (preserved from original)
-        loadstring(game:HttpGet("https://pastebin.com/raw/CjNsnSDy"))() -- placeholder; in original it's a complex UI
-        -- Nota: essa funcionalidade era complexa, simplifiquei para carregar o script externo
-    end
-})
-
--- Auto Kill methods
-local killMethod = "Non-Teleport"
-killSection:Dropdown({
-    Title = "Select Kill Method",
-    Values = {"Teleport", "Non-Teleport"},
-    Default = 2,
-    Callback = function(selected) killMethod = selected end
-})
-
-local autoKillActive = false
-killSection:Toggle({
-    Title = "Auto Kill Everyone",
-    Default = false,
-    Callback = function(v)
-        autoKillActive = v
-        if v then
-            if killMethod == "Teleport" then
-                task.spawn(function()
-                    while autoKillActive do
-                        local char = LocalPlayer.Character
-                        if char then
-                            local root = char:FindFirstChild("HumanoidRootPart")
-                            local punch = char:FindFirstChild("Punch")
-                            if punch then punch:Activate() end
-                            for _, player in pairs(Players:GetPlayers()) do
-                                if player ~= LocalPlayer then
-                                    pcall(function()
-                                        local targetRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                                        if targetRoot then
-                                            targetRoot.Size = Vector3.new(20,20,20)
-                                            targetRoot.Transparency = 1
-                                            targetRoot.CanCollide = false
-                                            targetRoot.CFrame = CFrame.new(1953.2662, 1.7816, 6186.1226)
-                                        end
-                                    end)
-                                end
-                            end
-                            if root then root.CFrame = CFrame.new(1953.2662, 1.7816, 6186.1226) end
-                            LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
-                            LocalPlayer.muscleEvent:FireServer("punch", "leftHand")
-                        end
-                        wait(0.01)
-                    end
-                end)
-            else
-                -- Non-Teleport
-                task.spawn(function()
-                    while autoKillActive do
-                        local char = LocalPlayer.Character
-                        if char then
-                            local left = char:FindFirstChild("LeftHand")
-                            local right = char:FindFirstChild("RightHand")
-                            for _, player in pairs(Players:GetPlayers()) do
-                                if player ~= LocalPlayer then
-                                    local target = player.Character and player.Character:FindFirstChild("Head")
-                                    if target and left and right then
-                                        target.CFrame = left.CFrame
-                                        for _, part in pairs(player.Character:GetDescendants()) do
-                                            if part:IsA("BasePart") and part.Name == "Handle" then
-                                                part.CFrame = left.CFrame
-                                            end
-                                        end
-                                        local sweat = player.Character:FindFirstChild("sweatPart")
-                                        if sweat then sweat.CFrame = left.CFrame end
-                                    end
-                                end
-                            end
-                            LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
-                            LocalPlayer.muscleEvent:FireServer("punch", "leftHand")
-                        end
-                        wait(0.01)
-                    end
-                end)
-            end
-        end
-    end
-})
-
-local whitelist = {}
-local whitelistDropdown = killSection:Dropdown({
-    Title = "Whitelist Players",
-    Values = {"None"},
-    Default = 1,
-    Callback = function(selected)
-        if selected ~= "None" then
-            if table.find(whitelist, selected) then
-                for i, v in pairs(whitelist) do
-                    if v == selected then
-                        table.remove(whitelist, i)
-                        break
-                    end
-                end
-            else
-                table.insert(whitelist, selected)
-            end
-        end
-    end
-})
-
--- Populate whitelist dropdown (corrigido – sem Clear/SetValue)
-task.spawn(function()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            whitelistDropdown:Add(p.Name)
-        end
-    end
-end)
-
--- Auto Kill V2
-local autoKillV2 = false
-killSection:Toggle({
-    Title = "Auto Kill V2",
-    Default = false,
-    Callback = function(v)
-        autoKillV2 = v
-        task.spawn(function()
-            while autoKillV2 do
-                local char = LocalPlayer.Character
-                local left = char and char:FindFirstChild("LeftHand")
-                local right = char and char:FindFirstChild("RightHand")
-                local punch = LocalPlayer.Backpack:FindFirstChild("Punch")
-                if punch and not char:FindFirstChild("Punch") then punch.Parent = char end
-                if left and right then
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer and not table.find(whitelist, player.Name) then
-                            local target = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                            if target then
-                                pcall(function()
-                                    firetouchinterest(left, target, 1)
-                                    firetouchinterest(right, target, 1)
-                                    firetouchinterest(left, target, 0)
-                                    firetouchinterest(right, target, 0)
-                                end)
-                            end
-                        end
-                    end
-                end
-                task.wait(0.05)
-            end
-        end)
-    end
-})
-
--- Good/Bad Karma
-local autoGoodKarma = false
-killSection:Toggle({
-    Title = "Auto Good Karma",
-    Default = false,
-    Callback = function(v)
-        autoGoodKarma = v
-        task.spawn(function()
-            while autoGoodKarma do
-                local char = LocalPlayer.Character
-                local left = char and char:FindFirstChild("LeftHand")
-                local right = char and char:FindFirstChild("RightHand")
-                if left and right then
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer then
-                            local evil = player:FindFirstChild("evilKarma")
-                            local good = player:FindFirstChild("goodKarma")
-                            if evil and good and evil.Value > good.Value then
-                                local target = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                                if target then
-                                    firetouchinterest(left, target, 1)
-                                    firetouchinterest(right, target, 1)
-                                    firetouchinterest(left, target, 0)
-                                    firetouchinterest(right, target, 0)
-                                end
-                            end
-                        end
-                    end
-                end
-                task.wait(0.1)
-            end
-        end)
-    end
-})
-
-local autoBadKarma = false
-killSection:Toggle({
-    Title = "Auto Bad Karma",
-    Default = false,
-    Callback = function(v)
-        autoBadKarma = v
-        task.spawn(function()
-            while autoBadKarma do
-                local char = LocalPlayer.Character
-                local left = char and char:FindFirstChild("LeftHand")
-                local right = char and char:FindFirstChild("RightHand")
-                if left and right then
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer then
-                            local evil = player:FindFirstChild("evilKarma")
-                            local good = player:FindFirstChild("goodKarma")
-                            if evil and good and good.Value > evil.Value then
-                                local target = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                                if target then
-                                    firetouchinterest(left, target, 1)
-                                    firetouchinterest(right, target, 1)
-                                    firetouchinterest(left, target, 0)
-                                    firetouchinterest(right, target, 0)
-                                end
-                            end
-                        end
-                    end
-                end
-                task.wait(0.1)
-            end
-        end)
-    end
-})
-
--- Select Pet Type
-local selectedKillPet = "Mighty Monster"
-killSection:Dropdown({
-    Title = "Select Pet Type",
-    Values = {"Mighty Monster", "Wild Wizard"},
-    Default = 1,
-    Callback = function(selected)
-        selectedKillPet = selected
-        unequipAllPets()
-        for _, p in pairs(LocalPlayer.petsFolder.Unique:GetChildren()) do
-            if p.Name == selected then
-                ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", p)
-            end
-        end
-    end
-})
-
--- NaN Size Combo
-local allAutoActive = false
-killSection:Toggle({
-    Title = "NaN Size Combo",
-    Desc = "Enable all automation features at once!",
-    Default = false,
-    Callback = function(v)
-        allAutoActive = v
-        if v then
-            -- Auto Protein Egg + NaN size etc. (simplified)
-            task.spawn(function()
-                while allAutoActive do
-                    local backpack = LocalPlayer:FindFirstChild("Backpack")
-                    local egg = backpack and backpack:FindFirstChild("Protein Egg")
-                    if egg then
-                        egg.Parent = LocalPlayer.Character
-                        pcall(function() egg:Activate() end)
-                    end
-                    LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
-                    ReplicatedStorage.rEvents.changeSpeedSizeRemote:InvokeServer("changeSize", math.huge * 0)
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-20.64, 3.68, 136.23)
-                    end
-                    task.wait(0.001)
-                end
-            end)
-        end
-    end
-})
-
-killSection:Toggle({
-    Title = "Anti Knockback [Important]",
-    Default = false,
-    Callback = function(v)
-        if v then
-            local cframe = LocalPlayer.Character.HumanoidRootPart.CFrame
-            getgenv().posLock = RunService.Heartbeat:Connect(function()
-                if LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = cframe
-                end
-            end)
-        else
-            if getgenv().posLock then
-                getgenv().posLock:Disconnect()
-                getgenv().posLock = nil
-            end
-        end
-    end
-})
-
--- Fast Punch (repeated from rocks, but for killing)
-local fastPunch2 = false
-killSection:Toggle({
-    Title = "Fast Punch (Killing)",
-    Default = false,
-    Callback = function(v)
-        fastPunch2 = v
         if v then
             _G.punchanim = true
-            if punchAnimConn then punchAnimConn:Disconnect() end
-            punchAnimConn = RunService.Heartbeat:Connect(function()
+            if punchConn then punchConn:Disconnect() end
+            punchConn = RunService.Heartbeat:Connect(function()
                 if _G.punchanim then
                     local char = LocalPlayer.Character
                     if char then
@@ -1501,35 +1182,118 @@ killSection:Toggle({
                         end
                     end
                 else
-                    if punchAnimConn then punchAnimConn:Disconnect() end
-                    punchAnimConn = nil
+                    if punchConn then punchConn:Disconnect() end
+                    punchConn = nil
                 end
             end)
         else
             _G.punchanim = false
-            if punchAnimConn then punchAnimConn:Disconnect() end
-            punchAnimConn = nil
+            if punchConn then punchConn:Disconnect() end
+            punchConn = nil
+            local punch = LocalPlayer.Backpack:FindFirstChild("Punch") or LocalPlayer.Character:FindFirstChild("Punch")
+            if punch and punch:FindFirstChild("attackTime") then
+                punch.attackTime.Value = 0.35
+            end
         end
     end
 })
 
--- Auto Kill Player (targeted)
-local targetPlayerName = ""
+-- ==================== AUTO KILL (COM WHITELIST POR INPUT) ====================
+local whitelist = {}
+local autoKill = false
+
+killSection:Paragraph({ Title = "Whitelist (players to ignore)" })
+local whitelistInput = killSection:Input({
+    Title = "Add to Whitelist",
+    Placeholder = "Digite o nome do jogador",
+    Callback = function(text)
+        if text and text ~= "" then
+            local found = false
+            for _, name in pairs(whitelist) do
+                if name:lower() == text:lower() then
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                table.insert(whitelist, text)
+                whitelistLabel:SetText("Whitelist: " .. table.concat(whitelist, ", "))
+            end
+        end
+    end
+})
+
+local whitelistLabel = killSection:Paragraph({ Title = "Whitelist", Text = "Whitelist: (nenhum)" })
+
+killSection:Button({
+    Title = "Limpar Whitelist",
+    Callback = function()
+        whitelist = {}
+        whitelistLabel:SetText("Whitelist: (nenhum)")
+    end
+})
+
+killSection:Toggle({
+    Title = "Auto Kill (todos os jogadores)",
+    Desc = "Ataca todos os jogadores não whitelistados",
+    Default = false,
+    Callback = function(v)
+        autoKill = v
+        task.spawn(function()
+            while autoKill do
+                local char = LocalPlayer.Character
+                if char then
+                    local left = char:FindFirstChild("LeftHand")
+                    local right = char:FindFirstChild("RightHand")
+                    if left and right then
+                        for _, player in pairs(Players:GetPlayers()) do
+                            if player ~= LocalPlayer then
+                                local isWhitelisted = false
+                                for _, name in pairs(whitelist) do
+                                    if player.Name:lower():find(name:lower()) then
+                                        isWhitelisted = true
+                                        break
+                                    end
+                                end
+                                if not isWhitelisted then
+                                    local target = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                                    if target then
+                                        pcall(function()
+                                            firetouchinterest(left, target, 1)
+                                            firetouchinterest(right, target, 1)
+                                            firetouchinterest(left, target, 0)
+                                            firetouchinterest(right, target, 0)
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+})
+
+-- ==================== AUTO KILL TARGET (POR NOME) ====================
+local targetName = ""
 killSection:Input({
-    Title = "Target Player Name",
-    Placeholder = "Enter name",
-    Callback = function(text) targetPlayerName = text end
+    Title = "Alvo específico",
+    Placeholder = "Digite o nome do alvo",
+    Callback = function(text) targetName = text end
 })
 
 local targetedKill = false
 killSection:Toggle({
-    Title = "Auto Kill Player [ENABLE PUNCH]",
+    Title = "Auto Kill (alvo específico)",
+    Desc = "Ataca apenas o jogador especificado",
     Default = false,
     Callback = function(v)
         targetedKill = v
         task.spawn(function()
-            while targetedKill and targetPlayerName ~= "" do
-                local target = Players:FindFirstChild(targetPlayerName)
+            while targetedKill and targetName ~= "" do
+                local target = Players:FindFirstChild(targetName)
                 if target and target ~= LocalPlayer then
                     local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
                     if root then
@@ -1538,10 +1302,12 @@ killSection:Toggle({
                             local left = char:FindFirstChild("LeftHand")
                             local right = char:FindFirstChild("RightHand")
                             if left and right then
-                                firetouchinterest(left, root, 1)
-                                firetouchinterest(right, root, 1)
-                                firetouchinterest(left, root, 0)
-                                firetouchinterest(right, root, 0)
+                                pcall(function()
+                                    firetouchinterest(left, root, 1)
+                                    firetouchinterest(right, root, 1)
+                                    firetouchinterest(left, root, 0)
+                                    firetouchinterest(right, root, 0)
+                                end)
                             end
                         end
                     end
@@ -1552,22 +1318,57 @@ killSection:Toggle({
     end
 })
 
--- Spy Player
+-- ==================== ANTI KNOCKBACK ====================
+local antiKnockback = false
+local posLock = nil
+killSection:Toggle({
+    Title = "Anti Knockback",
+    Desc = "Impede que você seja jogado para trás",
+    Default = false,
+    Callback = function(v)
+        antiKnockback = v
+        if v then
+            local cframe = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.CFrame
+            if cframe then
+                posLock = RunService.Heartbeat:Connect(function()
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = cframe
+                    end
+                end)
+            end
+        else
+            if posLock then
+                posLock:Disconnect()
+                posLock = nil
+            end
+        end
+    end
+})
+
+-- ==================== SPY PLAYER ====================
+local spyTarget = ""
+killSection:Input({
+    Title = "Nome para espiar",
+    Placeholder = "Digite o nome do jogador",
+    Callback = function(text) spyTarget = text end
+})
+
 local spyActive = false
 killSection:Toggle({
     Title = "Spy Player",
+    Desc = "Segue a câmera do alvo",
     Default = false,
     Callback = function(v)
         spyActive = v
-        if v and targetPlayerName ~= "" then
-            local target = Players:FindFirstChild(targetPlayerName)
+        if v and spyTarget ~= "" then
+            local target = Players:FindFirstChild(spyTarget)
             if target then
                 Camera.CameraType = Enum.CameraType.Scriptable
                 task.spawn(function()
                     while spyActive do
                         local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
                         if root then
-                            Camera.CFrame = CFrame.new(root.Position + Vector3.new(0,5,10), root.Position)
+                            Camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 5, 10), root.Position)
                         end
                         task.wait()
                     end
@@ -1581,7 +1382,6 @@ killSection:Toggle({
         end
     end
 })
-
 -- ==================== ULTIMATES ====================
 local ultimateNames = {
     "RepSpeed", "PetSlot", "ItemCapacity", "DailySpin", "ChestRewards",
