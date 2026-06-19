@@ -9,7 +9,8 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 -- Carregar WindUI
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+local _version = "1.6.65"
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/" .. _version .. "/main.lua"))() 
 
 -- ==================== JANELA PRINCIPAL ====================
 local Window = WindUI:CreateWindow({
@@ -20,14 +21,19 @@ local Window = WindUI:CreateWindow({
     Size = UDim2.fromOffset(550, 320),
     MinSize = Vector2.new(500, 400),
     Resizable = true,
+    HideSearchBar = false,  -- ← vírgula adicionada aqui
     SideBarWidth = 160,
     ShowMinimizeButton = true,
     MinimizeKey = Enum.KeyCode.RightControl,
+    Tag = {
+        Title = "Beta",
+        Icon = "lucide:sparkle",  -- ou "star" se preferir
+        Color = Color3.fromRGB(255, 200, 0)  -- dourado
+    }
 })
 
 -- ==================== ABAS ====================
 local TabIntro      = Window:Tab({ Title = "Introduction", Icon = "lucide:house" })
-local TabFarmV1     = Window:Tab({ Title = "Farm",         Icon = "lucide:dumbbel" })
 local TabRebirth    = Window:Tab({ Title = "Rebirthing",   Icon = "lucide:refresh-cw" })
 local TabTeleport   = Window:Tab({ Title = "Teleport",     Icon = "lucide:map-pin" })
 local TabRocks      = Window:Tab({ Title = "Rocks",        Icon = "lucide:stone" })
