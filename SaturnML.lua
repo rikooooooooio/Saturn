@@ -13,11 +13,11 @@ local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footag
 
 -- ==================== JANELA PRINCIPAL ====================
 local Window = WindUI:CreateWindow({
-    Title = "Saturn Hub | Muscle Legends",
-    Author = "Satn",
+    Title = "Saturn Hub - Muscle Legends",
+    Author = " By Satn",
     Folder = "Saturn Hub Muscle Legends",
     Theme = "Dark",
-    Size = UDim2.fromOffset(600, 520),
+    Size = UDim2.fromOffset(550, 320),
     MinSize = Vector2.new(500, 400),
     Resizable = true,
     SideBarWidth = 160,
@@ -27,15 +27,13 @@ local Window = WindUI:CreateWindow({
 
 -- ==================== ABAS ====================
 local TabIntro      = Window:Tab({ Title = "Introduction", Icon = "lucide:house" })
-local TabFarmV1     = Window:Tab({ Title = "Farm",       Icon = "lucide:dumbbel" })
+local TabFarmV1     = Window:Tab({ Title = "Farm",         Icon = "lucide:dumbbel" })
 local TabRebirth    = Window:Tab({ Title = "Rebirthing",   Icon = "lucide:refresh-cw" })
 local TabTeleport   = Window:Tab({ Title = "Teleport",     Icon = "lucide:map-pin" })
 local TabRocks      = Window:Tab({ Title = "Rocks",        Icon = "lucide:stone" })
 local TabKilling    = Window:Tab({ Title = "Killing",      Icon = "lucide:swords" })
 local TabPets       = Window:Tab({ Title = "Pets Hatch",   Icon = "lucide:egg" })
 local TabUltimates  = Window:Tab({ Title = "Ultimates",    Icon = "lucide:zap" })
-local TabStats      = Window:Tab({ Title = "Stats",        Icon = "lucide:bar-chart" })
-local TabViewStats  = Window:Tab({ Title = "View Stats",   Icon = "lucide:eye" })
 local TabMisc       = Window:Tab({ Title = "Misc",         Icon = "lucide:settings" })
 
 -- ==================== FUNÇÕES AUXILIARES ====================
@@ -556,7 +554,7 @@ local function unequipAllPets()
 end
 
 -- ==================== SEÇÃO 1: GYM TELEPORTS ====================
-local teleportSection = TabFarmV1:Section({ Title = "🏋️ Gym Teleports", Opened = true })
+local teleportSection = TabFarmV1:Section({ Title = "Gym Teleports", Opened = true })
 
 teleportSection:Dropdown({
     Title = "Bench Press Location",
@@ -583,7 +581,7 @@ teleportSection:Button({
 })
 
 teleportSection:Button({
-    Title = "⏹️ Stop Farming",
+    Title = "Stop Farming",
     Callback = function()
         farmingActive = false
         if farmThread then task.cancel(farmThread) end
@@ -591,7 +589,7 @@ teleportSection:Button({
 })
 
 -- ==================== SEÇÃO 2: QUICK TRAVEL ====================
-local travelSection = TabFarmV1:Section({ Title = "🚀 Quick Travel", Opened = true })
+local travelSection = TabFarmV1:Section({ Title = "Quick Travel", Opened = true })
 
 local quickTps = {
     {"Tiny Island", CFrame.new(-37.1, 9.2, 1919)},
@@ -612,7 +610,7 @@ for _, tp in pairs(quickTps) do
 end
 
 -- ==================== SEÇÃO 3: STRENGTH GRINDING ====================
-local grindSection = TabFarmV1:Section({ Title = "💪 Strength Grinding", Opened = true })
+local grindSection = TabFarmV1:Section({ Title = "Strength Grinding", Opened = true })
 
 grindSection:Input({
     Title = "Rep Threads",
@@ -643,7 +641,7 @@ grindSection:Toggle({
 })
 
 -- ==================== SEÇÃO 4: AUTO EXERCISES ====================
-local exerciseSection = TabFarmV1:Section({ Title = "🏃 Auto Exercises", Opened = true })
+local exerciseSection = TabFarmV1:Section({ Title = "Auto Exercises", Opened = true })
 
 exerciseSection:Toggle({
     Title = "Auto Pushups",
@@ -712,7 +710,7 @@ exerciseSection:Toggle({
 })
 
 -- ==================== SEÇÃO 5: AUTO MACHINES ====================
-local machineSection = TabFarmV1:Section({ Title = "🏛️ Auto Gym Machines", Opened = true })
+local machineSection = TabFarmV1:Section({ Title = "Auto Gym Machines", Opened = true })
 
 local jungleBench = false
 machineSection:Toggle({
@@ -827,7 +825,7 @@ machineSection:Toggle({
 })
 
 -- ==================== SEÇÃO 6: ROCK COMBOS ====================
-local rockComboSection = TabFarmV1:Section({ Title = "🪨 Auto Rock Combos", Opened = true })
+local rockComboSection = TabFarmV1:Section({ Title = "Auto Rock Combos", Opened = true })
 
 rockComboSection:Toggle({
     Title = "Pushups + Ancient Jungle Rock",
@@ -932,7 +930,7 @@ rockComboSection:Toggle({
 })
 
 -- ==================== SEÇÃO 7: UTILITIES ====================
-local utilitySection = TabFarmV1:Section({ Title = "🛠️ Utilities", Opened = true })
+local utilitySection = TabFarmV1:Section({ Title = "Utilities", Opened = true })
 
 utilitySection:Toggle({
     Title = "Eat Egg (30 Min)",
@@ -1299,23 +1297,13 @@ local whitelistDropdown = killSection:Dropdown({
     end
 })
 
--- Populate whitelist dropdown (corrigido)
+-- Populate whitelist dropdown (corrigido – sem Clear/SetValue)
 task.spawn(function()
-    local names = {}
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            table.insert(names, p.Name)
+            whitelistDropdown:Add(p.Name)
         end
     end
-    table.insert(names, 1, "None")  -- "None" sempre no topo
-
-    -- Limpa as opções atuais e adiciona todas de uma vez
-    whitelistDropdown:Clear()
-    for _, nome in ipairs(names) do
-        whitelistDropdown:Add(nome)
-    end
-    -- Define a seleção como "None" (índice 1)
-    whitelistDropdown:SetValue(1)  -- se existir; senão, apenas o Default já está 1
 end)
 
 -- Auto Kill V2
@@ -1618,125 +1606,6 @@ TabUltimates:Toggle({
     end
 })
 
--- ==================== STATS ====================
-local statsSection = TabStats:Section({ Title = "Execution Stats", Opened = true })
-local startTime = tick()
-local initialStats = {
-    Strength = LocalPlayer.leaderstats.Strength.Value,
-    Durability = LocalPlayer.Durability.Value,
-    Agility = LocalPlayer.Agility.Value,
-    Kills = LocalPlayer.leaderstats.Kills.Value,
-    EvilKarma = LocalPlayer.evilKarma.Value,
-    GoodKarma = LocalPlayer.goodKarma.Value,
-}
-
-local function updateStats()
-    local elapsed = tick() - startTime
-    local mins = math.floor(elapsed / 60)
-    local secs = math.floor(elapsed % 60)
-    local timeText = string.format("%02d:%02d", mins, secs)
-
-    local str = LocalPlayer.leaderstats.Strength.Value
-    local dur = LocalPlayer.Durability.Value
-    local agi = LocalPlayer.Agility.Value
-    local kills = LocalPlayer.leaderstats.Kills.Value
-    local evil = LocalPlayer.evilKarma.Value
-    local good = LocalPlayer.goodKarma.Value
-
-    local gained = {
-        Strength = str - initialStats.Strength,
-        Durability = dur - initialStats.Durability,
-        Agility = agi - initialStats.Agility,
-        Kills = kills - initialStats.Kills,
-        EvilKarma = evil - initialStats.EvilKarma,
-        GoodKarma = good - initialStats.GoodKarma,
-    }
-
-    return string.format([[
-Execution Time: %s
-Strength Gained: %s
-Durability Gained: %s
-Agility Gained: %s
-Kills Gained: %s
-Evil Karma: %s
-Good Karma: %s
-]], timeText,
-abbreviateNumber(gained.Strength),
-abbreviateNumber(gained.Durability),
-abbreviateNumber(gained.Agility),
-abbreviateNumber(gained.Kills),
-abbreviateNumber(gained.EvilKarma),
-abbreviateNumber(gained.GoodKarma))
-end
-
-local statsLabel = statsSection:Paragraph({ Title = "Live Stats", Text = updateStats() })
-task.spawn(function()
-    while task.wait(0.5) do
-        statsLabel.Text = updateStats()   -- AGORA FUNCIONA!
-    end
-end)
-
--- ==================== VIEW STATS ====================
-local viewStatsSection = TabViewStats:Section({ Title = "Player Stats Viewer", Opened = true })
-local viewedPlayer = nil
-local viewPlayerDropdown = viewStatsSection:Dropdown({
-    Title = "Select Player",
-    Values = {"None"},
-    Default = 1,
-    Callback = function(selected)
-        viewedPlayer = Players:FindFirstChild(selected)
-    end
-})
-
--- Populate dropdown (corrigido)
-task.spawn(function()
-    local names = {"None"}
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            table.insert(names, p.Name)
-        end
-    end
-
-    -- Limpa as opções atuais e recarrega
-    viewPlayerDropdown:Clear()
-    for _, nome in ipairs(names) do
-        viewPlayerDropdown:Add(nome)
-    end
-    -- Define a seleção como "None" (índice 1)
-    viewPlayerDropdown:SetValue(1)
-end)
-
-local function getPlayerStatsText()
-    if not viewedPlayer then return "No player selected" end
-    local ls = viewedPlayer:FindFirstChild("leaderstats")
-    if not ls then return "Player has no leaderstats" end
-    local str = ls:FindFirstChild("Strength") and abbreviateNumber(ls.Strength.Value) or "0"
-    local dur = viewedPlayer:FindFirstChild("Durability") and abbreviateNumber(viewedPlayer.Durability.Value) or "0"
-    local agi = viewedPlayer:FindFirstChild("Agility") and abbreviateNumber(viewedPlayer.Agility.Value) or "0"
-    local reb = ls:FindFirstChild("Rebirths") and abbreviateNumber(ls.Rebirths.Value) or "0"
-    local kills = ls:FindFirstChild("Kills") and abbreviateNumber(ls.Kills.Value) or "0"
-    local evil = viewedPlayer:FindFirstChild("evilKarma") and abbreviateNumber(viewedPlayer.evilKarma.Value) or "0"
-    local good = viewedPlayer:FindFirstChild("goodKarma") and abbreviateNumber(viewedPlayer.goodKarma.Value) or "0"
-    return string.format([[
-Stats for %s:
-💪 Strength: %s
-🛡️ Durability: %s
-🏃 Agility: %s
-🔄 Rebirths: %s
-💀 Kills: %s
-😈 Evil Karma: %s
-😇 Good Karma: %s
-]], viewedPlayer.DisplayName, str, dur, agi, reb, kills, evil, good)
-end
-
-local viewStatsLabel = viewStatsSection:Paragraph({ Title = "Player Stats", Text = "Select a player" })
-task.spawn(function()
-    while task.wait(0.5) do
-        if viewedPlayer then
-            viewStatsLabel:SetText(getPlayerStatsText())
-        end
-    end
-end)
 
 -- ==================== MISC ====================
 local miscSection = TabMisc:Section({ Title = "Miscellaneous", Opened = true })
