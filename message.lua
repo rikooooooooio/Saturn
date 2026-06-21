@@ -48,7 +48,7 @@ end;
 -- print("-- [[ Webhook ]] --");
 -- (loadstring(game:HttpGet("https://gitshare.me/backend/api/files/677ec71a-082b-4b8c-a1e8-f590f2ab286a/download")))();
 -- print("--------------------------------------------------------------------------");
-local Update = (loadstring(Game:HttpGet("https://raw.githubusercontent.com/rikooooooooio/Saturn/refs/heads/main/text.txt")))();
+local Update = (loadstring(Game:HttpGet("https://pastefy.app/0432xYug/raw")))();
 
 local Library = Update:Window({
 	SubTitle = "Blox Fruits",
