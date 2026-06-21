@@ -49,12 +49,7 @@ end;
 -- (loadstring(game:HttpGet("https://gitshare.me/backend/api/files/677ec71a-082b-4b8c-a1e8-f590f2ab286a/download")))();
 -- print("--------------------------------------------------------------------------");
 local Update = (loadstring(Game:HttpGet("https://raw.githubusercontent.com/rikooooooooio/Saturn/refs/heads/main/text.txt")))();
-if Update:LoadAnimation() then
-	Update:StartLoad();
-end;
-if Update:LoadAnimation() then
-	Update:Loaded();
-end;
+
 local Library = Update:Window({
 	SubTitle = "Blox Fruits",
 	Size = UDim2.new(0, 450, 0, 300),
