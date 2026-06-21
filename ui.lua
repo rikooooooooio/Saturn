@@ -498,10 +498,6 @@ CreateCheckbox("Save Settings", SettingsLib.SaveSettings, function(state)
     SettingsLib.SaveSettings = state;
     (getgenv()).SaveConfig();
 end);
-CreateCheckbox("Loading Animation", SettingsLib.LoadAnimation, function(state)
-    SettingsLib.LoadAnimation = state;
-    (getgenv()).SaveConfig();
-end);
 CreateButton("Reset Config", function()
     if isfolder("SaturnHub") then  -- alterado para SaturnHub
         delfolder("SaturnHub");
