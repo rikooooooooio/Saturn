@@ -1,56 +1,22 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
 
-router.get('/:scriptId', (req, res) => {
-  const { key, hwid } = req.query;
-  const scriptId = req.params.scriptId;
+router.get('/:id', (req, res) => {
+  const loaderSecret = process.env.LOADER_SECRET || 'saturn_loader_secret_2024';
+  const clientSecret = req.headers['x-saturn-key'];
 
-  if (!key) return res.status(400).send('Acesso negado. Key é obrigatória.');
-
-  const keyData = req.db.prepare('SELECT * FROM keys WHERE key = ?').get([key]);
-  if (!keyData) {
-    log(req, 'KEY_INVALID', `Key: ${key}`);
-    return res.status(403).send('Acesso negado. Key inválida.');
+  // Bloquear acesso se não tiver o header correto
+  if (clientSecret !== loaderSecret) {
+    return res.status(403).sendFile(path.join(__dirname, '..', 'public', 'blocked.html'));
   }
 
-  if (keyData.status === 'revoked') {
-    log(req, 'KEY_REVOKED', `Key: ${key}`);
-    return res.status(403).send('Acesso negado. Key revogada.');
-  }
-
-  if (keyData.expires_at && new Date(keyData.expires_at) < new Date()) {
-    req.db.prepare('UPDATE keys SET status = ? WHERE id = ?').run(['expired', keyData.id]);
-    req.saveDb();
-    log(req, 'KEY_EXPIRED', `Key: ${key}`);
-    return res.status(403).send('Acesso negado. Key expirada.');
-  }
-
-  if (keyData.hwid && hwid && keyData.hwid !== hwid) {
-    log(req, 'HWID_MISMATCH', `Key: ${key}`);
-    return res.status(403).send('Acesso negado. HWID não corresponde.');
-  }
-
-  if (!keyData.hwid && hwid) {
-    req.db.prepare('UPDATE keys SET hwid = ? WHERE id = ?').run([hwid, keyData.id]);
-    req.saveDb();
-  }
-
-  const script = req.db.prepare('SELECT * FROM scripts WHERE id = ? AND status = ?').get([scriptId, 'online']);
+  const script = req.db.prepare('SELECT * FROM scripts WHERE id = ? AND status = ?').get([req.params.id, 'online']);
   if (!script) {
-    log(req, 'SCRIPT_NOT_FOUND', `Script: ${scriptId}`);
-    return res.status(404).send('Acesso negado. Script não encontrado ou offline.');
+    return res.status(404).sendFile(path.join(__dirname, '..', 'public', 'blocked.html'));
   }
-
-  req.db.prepare('UPDATE keys SET last_used = CURRENT_TIMESTAMP WHERE id = ?').run([keyData.id]);
-  req.saveDb();
-  log(req, 'SCRIPT_ACCESS', `Script: ${script.name}, Key: ${key}`);
 
   res.type('text/plain').send(script.content);
 });
-
-function log(req, action, details) {
-  req.db.prepare('INSERT INTO logs (action, details, ip) VALUES (?, ?, ?)').run([action, details, req.ip]);
-  req.saveDb();
-}
 
 module.exports = router;
