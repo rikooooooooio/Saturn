@@ -10,10 +10,9 @@ router.post('/login', (req, res) => {
   const admin = req.db.prepare('SELECT * FROM admins WHERE username = ?').get([username]);
   if (!admin) return res.status(401).json({ error: 'Credenciais inválidas' });
 
-  // Verificar se o hash existe
-  if (!admin.password_hash) {
+  if (!admin.password_hash || admin.password_hash === '') {
     console.error('❌ Hash vazio para usuário:', username);
-    return res.status(500).json({ error: 'Erro interno. Acesse /api/reset-admin' });
+    return res.status(500).json({ error: 'Erro interno. Acesse /api/reset-admin para corrigir.' });
   }
 
   const valid = bcrypt.compareSync(password, admin.password_hash);
@@ -32,14 +31,13 @@ router.post('/login', (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'lax' });
   res.json({ success: true });
 });
 
 router.get('/me', (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: 'Não autenticado' });
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     res.json({ username: decoded.username });
