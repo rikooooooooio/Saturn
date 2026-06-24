@@ -14,24 +14,23 @@ const modalCancel = document.getElementById('modalCancel');
 const modalSave = document.getElementById('modalSave');
 const tabLinks = document.querySelectorAll('.sidebar-link');
 const tabContents = document.querySelectorAll('.tab-content');
+const menuToggle = document.getElementById('menuToggle');
 
 // ==================== FUNÇÃO API COM COOKIE ====================
 async function api(url, options = {}) {
-  try {
-    const res = await fetch(url, {
-      credentials: 'include', // 🔥 envia cookie HttpOnly
-      ...options,
-    });
-    if (res.status === 401 || res.status === 403) {
-      isAuthenticated = false;
-      showLogin();
-      throw new Error('Unauthorized');
-    }
-    return res;
-  } catch (err) {
-    console.error('API Error:', err);
-    throw err;
+  const res = await fetch(url, {
+    credentials: 'include', // envia cookie HttpOnly
+    ...options,
+  });
+  if (res.status === 401 || res.status === 403) {
+    isAuthenticated = false;
+    showLogin();
+    throw new Error('Unauthorized');
   }
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status}`);
+  }
+  return res;
 }
 
 // ==================== AUTENTICAÇÃO ====================
@@ -42,7 +41,7 @@ function showLogin() {
 
 async function checkAuth() {
   try {
-    const res = await api('/api/auth/me');
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
     if (res.ok) {
       isAuthenticated = true;
       loginSection.classList.add('hidden');
@@ -63,30 +62,33 @@ loginForm.addEventListener('submit', async (e) => {
   const password = document.getElementById('password').value;
 
   try {
-    const res = await api('/api/auth/login', {
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
     if (res.ok) {
       isAuthenticated = true;
+      loginError.style.display = 'none';
       loginSection.classList.add('hidden');
       appSection.classList.remove('hidden');
       document.querySelector('.sidebar-link[data-tab="dashboard"]').click();
     } else {
-      const data = await res.json();
-      loginError.textContent = data.error || 'Credenciais inválidas';
+      let message = 'Credenciais inválidas';
+      try { message = (await res.json()).error || message; } catch {}
+      loginError.textContent = message;
       loginError.style.display = 'block';
     }
   } catch (err) {
-    loginError.textContent = 'Erro de conexão';
+    loginError.textContent = 'Erro de conexão com o servidor';
     loginError.style.display = 'block';
   }
 });
 
 logoutBtn.addEventListener('click', async () => {
-  await api('/api/auth/logout', { method: 'POST' });
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
   isAuthenticated = false;
   showLogin();
 });
@@ -94,26 +96,26 @@ logoutBtn.addEventListener('click', async () => {
 // ==================== NAVEGAÇÃO DE ABAS ====================
 tabLinks.forEach(link => {
   link.addEventListener('click', () => {
-    // Ativar link
     tabLinks.forEach(l => l.classList.remove('active'));
     link.classList.add('active');
 
-    // Mostrar conteúdo da aba
     const tabId = link.getAttribute('data-tab');
     tabContents.forEach(c => c.classList.add('hidden'));
     const target = document.getElementById(`tab-${tabId}`);
     if (target) target.classList.remove('hidden');
 
-    // Carregar dados conforme aba
     if (tabId === 'dashboard') loadDashboard();
     else if (tabId === 'scripts') loadScripts();
     else if (tabId === 'keys') loadKeys();
-    // Settings não precisa de carregamento
+
+    // fecha o menu mobile depois de escolher uma aba
+    if (menuToggle) menuToggle.checked = false;
   });
 });
 
 // ==================== DASHBOARD ====================
 async function loadDashboard() {
+  const ids = ['statScripts', 'statKeys', 'statActiveKeys', 'statOnlineScripts'];
   try {
     const scriptsRes = await api('/api/scripts');
     const scripts = await scriptsRes.json();
@@ -126,27 +128,28 @@ async function loadDashboard() {
     document.getElementById('statOnlineScripts').textContent = scripts.filter(s => s.status === 'online').length;
   } catch (err) {
     console.error('Erro ao carregar dashboard:', err);
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
   }
 }
 
 // ==================== SCRIPTS ====================
 async function loadScripts() {
+  const tbody = document.getElementById('scriptsTable');
+  if (!tbody) return;
   try {
     const res = await api('/api/scripts');
     const scripts = await res.json();
-    const tbody = document.getElementById('scriptsTable');
-    if (!tbody) return;
 
     if (scripts.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2rem;color:#666;">Nenhum script encontrado</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">Nenhum script encontrado. Clique em "+ New Script" para criar o primeiro.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = scripts.map(s => `
       <tr>
         <td><strong>${escapeHtml(s.name)}</strong></td>
-        <td><span class="badge badge-${s.status}">${s.status}</span></td>
-        <td style="font-family:monospace;font-size:0.8rem;color:#888;">/api/load/${s.id}</td>
+        <td><span class="badge badge-${s.status}">${escapeHtml(s.status)}</span></td>
+        <td class="text-mono text-sm" style="color:var(--text-faint);">/api/load/${escapeHtml(s.id)}</td>
         <td>
           <button class="btn btn-sm btn-secondary edit-script" data-id="${s.id}">Edit</button>
           <button class="btn btn-sm btn-danger delete-script" data-id="${s.id}">Delete</button>
@@ -154,7 +157,6 @@ async function loadScripts() {
       </tr>
     `).join('');
 
-    // Event listeners
     tbody.querySelectorAll('.edit-script').forEach(btn =>
       btn.addEventListener('click', () => openScriptModal(btn.dataset.id))
     );
@@ -163,6 +165,8 @@ async function loadScripts() {
     );
   } catch (err) {
     console.error('Erro ao carregar scripts:', err);
+    tbody.innerHTML = `<tr><td colspan="4" class="error-cell">Não foi possível carregar os scripts.<a href="#" id="retryScripts">Tentar novamente</a></td></tr>`;
+    document.getElementById('retryScripts')?.addEventListener('click', (e) => { e.preventDefault(); loadScripts(); });
   }
 }
 
@@ -174,7 +178,7 @@ async function openScriptModal(id = null) {
     modalTitle.textContent = 'Edit Script';
     modalContent.innerHTML = `
       <div class="form-group"><label class="form-label">Name</label><input id="scriptName" class="form-input" value="${escapeHtml(script.name)}"></div>
-      <div class="form-group"><label class="form-label">Content</label><textarea id="scriptContent" class="form-input" style="min-height:150px;font-family:monospace;">${escapeHtml(script.content)}</textarea></div>
+      <div class="form-group"><label class="form-label">Content</label><textarea id="scriptContent" class="form-input text-mono" style="min-height:150px;">${escapeHtml(script.content)}</textarea></div>
       <div class="form-group"><label class="form-label">Status</label><select id="scriptStatus" class="form-input">
         <option value="online" ${script.status==='online'?'selected':''}>Online</option>
         <option value="offline" ${script.status==='offline'?'selected':''}>Offline</option>
@@ -188,7 +192,7 @@ async function openScriptModal(id = null) {
     modalTitle.textContent = 'New Script';
     modalContent.innerHTML = `
       <div class="form-group"><label class="form-label">Name</label><input id="scriptName" class="form-input" placeholder="My Script"></div>
-      <div class="form-group"><label class="form-label">Content</label><textarea id="scriptContent" class="form-input" style="min-height:150px;font-family:monospace;" placeholder="-- Lua code"></textarea></div>
+      <div class="form-group"><label class="form-label">Content</label><textarea id="scriptContent" class="form-input text-mono" style="min-height:150px;" placeholder="-- Lua code"></textarea></div>
       <div class="form-group"><label class="form-label">Status</label><select id="scriptStatus" class="form-input">
         <option value="online">Online</option>
         <option value="offline">Offline</option>
@@ -210,41 +214,48 @@ async function saveScript(id) {
   const url = id ? `/api/scripts/${id}` : '/api/scripts';
   const method = id ? 'PUT' : 'POST';
 
-  await api(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, content, status }),
-  });
-
-  modal.classList.remove('show');
-  loadScripts();
+  try {
+    await api(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, content, status }),
+    });
+    modal.classList.remove('show');
+    loadScripts();
+  } catch (err) {
+    alert('Não foi possível salvar o script. Tente novamente.');
+  }
 }
 
 async function deleteScript(id) {
   if (!confirm('Tem certeza que deseja excluir este script?')) return;
-  await api(`/api/scripts/${id}`, { method: 'DELETE' });
-  loadScripts();
+  try {
+    await api(`/api/scripts/${id}`, { method: 'DELETE' });
+    loadScripts();
+  } catch {
+    alert('Não foi possível excluir o script.');
+  }
 }
 
 // ==================== KEYS ====================
 async function loadKeys() {
+  const tbody = document.getElementById('keysTable');
+  if (!tbody) return;
   try {
     const res = await api('/api/keys');
     const keys = await res.json();
-    const tbody = document.getElementById('keysTable');
-    if (!tbody) return;
 
     if (keys.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:#666;">Nenhuma key encontrada</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">Nenhuma key encontrada. Clique em "+ Generate Key" para criar a primeira.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = keys.map(k => `
       <tr>
-        <td style="font-family:monospace;">${k.key}</td>
+        <td class="text-mono">${escapeHtml(k.key)}</td>
         <td>${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : '∞'}</td>
-        <td>${k.hwid || 'Livre'}</td>
-        <td><span class="badge badge-${k.status}">${k.status}</span></td>
+        <td>${escapeHtml(k.hwid || 'Livre')}</td>
+        <td><span class="badge badge-${k.status}">${escapeHtml(k.status)}</span></td>
         <td>
           <button class="btn btn-sm btn-secondary revoke-key" data-id="${k.id}">Revogar</button>
           <button class="btn btn-sm btn-secondary reset-hwid" data-id="${k.id}">Reset HWID</button>
@@ -258,6 +269,8 @@ async function loadKeys() {
     tbody.querySelectorAll('.delete-key').forEach(b => b.addEventListener('click', () => deleteKey(b.dataset.id)));
   } catch (err) {
     console.error('Erro ao carregar keys:', err);
+    tbody.innerHTML = `<tr><td colspan="5" class="error-cell">Não foi possível carregar as keys.<a href="#" id="retryKeys">Tentar novamente</a></td></tr>`;
+    document.getElementById('retryKeys')?.addEventListener('click', (e) => { e.preventDefault(); loadKeys(); });
   }
 }
 
@@ -266,28 +279,32 @@ async function generateKey() {
   const days = prompt('Dias de expiração (vazio = sem expiração):');
   const expiresAt = days ? new Date(Date.now() + days * 86400000).toISOString() : null;
 
-  await api('/api/keys', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scriptId, expiresAt }),
-  });
-  loadKeys();
+  try {
+    await api('/api/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scriptId, expiresAt }),
+    });
+    loadKeys();
+  } catch {
+    alert('Não foi possível gerar a key.');
+  }
 }
 
 async function revokeKey(id) {
-  await api(`/api/keys/${id}/revoke`, { method: 'PUT' });
-  loadKeys();
+  try { await api(`/api/keys/${id}/revoke`, { method: 'PUT' }); loadKeys(); }
+  catch { alert('Não foi possível revogar a key.'); }
 }
 
 async function resetHwid(id) {
-  await api(`/api/keys/${id}/reset-hwid`, { method: 'PUT' });
-  loadKeys();
+  try { await api(`/api/keys/${id}/reset-hwid`, { method: 'PUT' }); loadKeys(); }
+  catch { alert('Não foi possível resetar o HWID.'); }
 }
 
 async function deleteKey(id) {
   if (!confirm('Excluir esta key?')) return;
-  await api(`/api/keys/${id}`, { method: 'DELETE' });
-  loadKeys();
+  try { await api(`/api/keys/${id}`, { method: 'DELETE' }); loadKeys(); }
+  catch { alert('Não foi possível excluir a key.'); }
 }
 
 // ==================== MODAL ====================
