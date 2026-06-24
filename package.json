@@ -1,7 +1,6 @@
 {
   "name": "saturn-storage",
   "version": "1.0.0",
-  "description": "Saturn Storage - Secure Script Storage",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,7 +11,6 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",
-    "sql.js": "^1.10.3",
     "uuid": "^9.0.0"
   }
 }
