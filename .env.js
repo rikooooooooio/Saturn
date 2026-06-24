@@ -1,4 +1,0 @@
-PORT=3000
-JWT_SECRET=nanaguikingofking
-ADMIN_EMAIL=nanagui@youtubepontucom
-ADMIN_PASSWORD=001010GGZEHEN
