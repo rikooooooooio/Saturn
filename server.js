@@ -64,16 +64,28 @@ function ensureAdminSeed(db) {
     return;
   }
 
-  const existing = db.prepare('SELECT id FROM admins WHERE email = ?').get([adminEmail]);
-  if (existing) {
-    console.log(`ℹ️  Admin já existe: ${adminEmail} (mantido como está)`);
+  const existing = db.prepare('SELECT id, password_hash FROM admins WHERE email = ?').get([adminEmail]);
+
+  if (!existing) {
+    const hash = bcrypt.hashSync(adminPassword, 10);
+    db.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').run([adminEmail, hash]);
+    saveDb();
+    console.log(`✅ Admin criado: ${adminEmail}`);
     return;
   }
 
-  const hash = bcrypt.hashSync(adminPassword, 10);
-  db.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').run([adminEmail, hash]);
-  saveDb();
-  console.log(`✅ Admin criado: ${adminEmail}`);
+  // Caminho seguro e explícito para trocar a senha do admin sem expor
+  // nenhuma rota HTTP pública: defina RESET_ADMIN_PASSWORD=true no .env,
+  // reinicie o servidor uma vez, e depois REMOVA essa linha do .env.
+  if (process.env.RESET_ADMIN_PASSWORD === 'true') {
+    const hash = bcrypt.hashSync(adminPassword, 10);
+    db.prepare('UPDATE admins SET password_hash = ? WHERE email = ?').run([hash, adminEmail]);
+    saveDb();
+    console.log(`🔁 Senha do admin ${adminEmail} foi atualizada a partir do .env. Remova RESET_ADMIN_PASSWORD do .env agora.`);
+    return;
+  }
+
+  console.log(`ℹ️  Admin já existe: ${adminEmail} (senha mantida como está). Para trocar a senha, defina RESET_ADMIN_PASSWORD=true no .env e reinicie.`);
 }
 
 (async () => {
