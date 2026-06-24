@@ -6,7 +6,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { initDatabase, getDb, saveDb } = require('./database');
-const argon2 = require('argon2');
+const bcrypt = require('bcryptjs');
 
 const authRoutes = require('./routes/auth');
 const scriptsRoutes = require('./routes/scripts');
@@ -16,11 +16,11 @@ const loaderRoutes = require('./routes/loader');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 🔥 Remove banco antigo (hash corrompido)
+// Remove banco antigo
 const DB_PATH = path.join(__dirname, 'saturn.db');
 if (fs.existsSync(DB_PATH)) {
   fs.unlinkSync(DB_PATH);
-  console.log('🗑️ Banco antigo removido para recriação limpa.');
+  console.log('🗑️ Banco antigo removido.');
 }
 
 app.set('trust proxy', 1);
@@ -53,7 +53,30 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// Inicialização
+// 🔥 ROTA DE EMERGÊNCIA - acesse no navegador se o login falhar
+app.get('/api/reset-admin', async (req, res) => {
+  try {
+    const db = getDb();
+    const email = 'nanagui@youtubepontucom';
+    const password = '001010GGZEHEN';
+    
+    db.run('DELETE FROM admins');
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').run([email, hash]);
+    saveDb();
+    
+    res.json({ 
+      success: true, 
+      message: 'Admin resetado com sucesso',
+      email: email,
+      password: password,
+      hash: hash.substring(0, 10) + '...'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 (async () => {
   try {
     await initDatabase();
@@ -62,13 +85,7 @@ app.get('/admin', (req, res) => {
     const adminEmail = process.env.ADMIN_EMAIL || 'nanagui@youtubepontucom';
     const adminPassword = process.env.ADMIN_PASSWORD || '001010GGZEHEN';
 
-    const hash = await argon2.hash(adminPassword, {
-      type: argon2.argon2id,
-      memoryCost: 2 ** 16,
-      timeCost: 3,
-      parallelism: 1,
-    });
-
+    const hash = bcrypt.hashSync(adminPassword, 10);
     db.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').run([adminEmail, hash]);
     saveDb();
 
