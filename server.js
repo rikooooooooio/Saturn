@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // -------------------------------------------------------
-// "BANCO" EM MEMÓRIA (simples, sem arquivo, sem sql.js)
+// "BANCO" EM MEMÓRIA
 // -------------------------------------------------------
 const DB = {
   admins: [],
@@ -26,7 +26,7 @@ DB.admins.push({
   username: ADMIN_USER,
   password_hash: adminHash
 });
-console.log(`✅ Admin pronto para login: ${ADMIN_USER}`);
+console.log(`✅ Admin pronto: ${ADMIN_USER}`);
 
 // -------------------------------------------------------
 // MIDDLEWARES
@@ -36,30 +36,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Injeta o DB nas requisições
 app.use((req, res, next) => {
   req.DB = DB;
   next();
 });
 
 // -------------------------------------------------------
-// AUTENTICAÇÃO (LOGIN / LOGOUT / VERIFICAÇÃO)
+// AUTENTICAÇÃO
 // -------------------------------------------------------
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Preencha todos os campos' });
-  }
+  if (!username || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
 
   const admin = DB.admins.find(a => a.username === username);
-  if (!admin) {
-    return res.status(401).json({ error: 'Credenciais inválidas' });
-  }
+  if (!admin) return res.status(401).json({ error: 'Credenciais inválidas' });
 
   const valid = bcrypt.compareSync(password, admin.password_hash);
-  if (!valid) {
-    return res.status(401).json({ error: 'Credenciais inválidas' });
-  }
+  if (!valid) return res.status(401).json({ error: 'Credenciais inválidas' });
 
   const token = jwt.sign(
     { id: admin.id, username: admin.username },
@@ -69,7 +62,7 @@ app.post('/api/auth/login', (req, res) => {
 
   res.cookie('token', token, {
     httpOnly: true,
-    secure: true,          // Render usa HTTPS
+    secure: true,
     sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000
   });
@@ -78,18 +71,13 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax'
-  });
+  res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'lax' });
   return res.json({ success: true });
 });
 
 app.get('/api/auth/me', (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: 'Não autenticado' });
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     return res.json({ username: decoded.username });
@@ -98,11 +86,9 @@ app.get('/api/auth/me', (req, res) => {
   }
 });
 
-// Middleware de proteção para rotas administrativas
 function authMiddleware(req, res, next) {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: 'Acesso negado' });
-
   try {
     jwt.verify(token, process.env.JWT_SECRET || 'secret');
     next();
@@ -132,9 +118,7 @@ app.get('/api/scripts/:id', authMiddleware, (req, res) => {
 
 app.post('/api/scripts', authMiddleware, (req, res) => {
   const { name, content, status } = req.body;
-  if (!name || !content) {
-    return res.status(400).json({ error: 'Nome e conteúdo são obrigatórios' });
-  }
+  if (!name || !content) return res.status(400).json({ error: 'Nome e conteúdo obrigatórios' });
 
   const newScript = {
     id: uuidv4(),
@@ -157,7 +141,6 @@ app.put('/api/scripts/:id', authMiddleware, (req, res) => {
   if (content !== undefined) script.content = content;
   if (status !== undefined) script.status = status;
   script.updated_at = new Date().toISOString();
-
   return res.json(script);
 });
 
@@ -169,14 +152,13 @@ app.delete('/api/scripts/:id', authMiddleware, (req, res) => {
 });
 
 // -------------------------------------------------------
-// LOADER PÚBLICO (PROTEGIDO POR CHAVE NA URL)
+// LOADER PÚBLICO (PROTEÇÃO POR USER‑AGENT)
 // -------------------------------------------------------
 app.get('/api/load/:id', (req, res) => {
-  const key = req.query.key;
-  const validKey = process.env.LOADER_SECRET || 'saturn_loader_secret_2024';
+  const userAgent = (req.get('User-Agent') || '').toLowerCase();
 
-  // Bloqueia acesso sem a chave correta
-  if (key !== validKey) {
+  // Apenas o Roblox consegue carregar o código
+  if (!userAgent.includes('roblox')) {
     return res.status(403).sendFile(path.join(__dirname, 'public', 'blocked.html'));
   }
 
@@ -185,7 +167,7 @@ app.get('/api/load/:id', (req, res) => {
     return res.status(404).sendFile(path.join(__dirname, 'public', 'blocked.html'));
   }
 
-  // Entrega o conteúdo como texto puro (sem cabeçalho HTML)
+  // Entrega o script em texto puro (somente o Roblox lê)
   res.type('text/plain');
   return res.send(script.content);
 });
@@ -193,17 +175,9 @@ app.get('/api/load/:id', (req, res) => {
 // -------------------------------------------------------
 // PÁGINAS ESTÁTICAS
 // -------------------------------------------------------
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'login.html'));
-});
-
-app.get('/admin/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html'));
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'login.html')));
+app.get('/admin/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
 
 // -------------------------------------------------------
 // INICIALIZAÇÃO
