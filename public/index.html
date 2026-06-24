@@ -6,23 +6,50 @@
   <title>Saturn Panel - Script Hub</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="icon" href="data:,">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fira+Code&display=swap" rel="stylesheet">
 </head>
-<body class="bg-black text-white min-h-screen flex flex-col">
-  <nav class="border-b border-zinc-800 px-6 py-4 flex justify-between items-center">
-    <span class="text-xl font-bold tracking-tight">SATURN PANEL</span>
-    <a href="/admin" class="px-4 py-2 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition">Admin</a>
+<body class="min-h-screen flex flex-col bg-black text-white">
+  <nav class="navbar">
+    <span class="navbar-brand">SATURN PANEL</span>
+    <div class="navbar-actions">
+      <a href="/admin" class="btn btn-primary btn-sm">Admin</a>
+    </div>
   </nav>
-  <main class="flex-1 flex items-center justify-center text-center px-4">
-    <div>
-      <h1 class="text-5xl md:text-7xl font-black mb-4 bg-gradient-to-br from-white to-gray-500 bg-clip-text text-transparent">SATURN PANEL</h1>
-      <p class="text-zinc-400 max-w-md mx-auto mb-8">The ultimate script library. Fast, secure, always online.</p>
-      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md mx-auto text-left font-mono text-sm">
-        <div class="flex gap-2 mb-3"><span class="w-3 h-3 rounded-full bg-zinc-600"></span><span class="w-3 h-3 rounded-full bg-zinc-500"></span><span class="w-3 h-3 rounded-full bg-zinc-400"></span></div>
-        <code><span class="text-white">Key</span> = <span class="text-zinc-400">"SATURN-XXXX-XXXX-XXXX"</span><br><br>
-        <span class="text-white">loadstring</span>(<span class="text-white">game:HttpGet</span>(<span class="text-zinc-500">"https://saturnpanel.space/api/load/</span><span class="text-white">scriptId</span><span class="text-zinc-500">?key="</span> .. <span class="text-white">Key</span>))()</code>
+
+  <main class="hero flex-1">
+    <div class="hero-content">
+      <div class="hero-badge">Welcome to</div>
+      <h1 class="hero-title">SATURN PANEL</h1>
+      <p class="hero-subtitle">The ultimate script library. Fast, secure, always online.</p>
+
+      <div class="code-box">
+        <div class="code-header">
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+        </div>
+        <code>
+          <span style="color:#fff">Key</span> = <span style="color:#a0a0a0">"SATURN-XXXX-XXXX-XXXX"</span><br><br>
+          <span style="color:#fff">loadstring</span>(<span style="color:#fff">game:HttpGet</span>(<span style="color:#666">"https://saturnpanel.space/api/load/</span><span style="color:#fff">scriptId</span><span style="color:#666">?key="</span> .. <span style="color:#fff">Key</span>))()
+        </code>
+      </div>
+
+      <div class="flex gap-2 justify-center">
+        <button class="btn btn-primary" onclick="copyLoader()">Copy Loader</button>
+        <a href="/admin" class="btn btn-secondary">Admin Panel</a>
       </div>
     </div>
   </main>
-  <footer class="border-t border-zinc-800 py-6 text-center text-zinc-600 text-sm">© 2026 Saturn Panel</footer>
+
+  <footer class="footer">
+    <div>&copy; 2026 Saturn Panel. Built for script enthusiasts.</div>
+  </footer>
+
+  <script>
+    function copyLoader() {
+      const code = 'Key = "SATURN-XXXX-XXXX-XXXX"\nloadstring(game:HttpGet("https://saturnpanel.space/api/load/scriptId?key=" .. Key))()';
+      navigator.clipboard.writeText(code).then(() => alert('Loader copied!'));
+    }
+  </script>
 </body>
 </html>
