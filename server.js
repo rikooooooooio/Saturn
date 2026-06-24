@@ -1,5 +1,4 @@
 require('dotenv').config();
-const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
@@ -15,12 +14,6 @@ const loaderRoutes = require('./routes/loader');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-const DB_PATH = path.join(__dirname, 'saturn.db');
-if (fs.existsSync(DB_PATH)) {
-  fs.unlinkSync(DB_PATH);
-  console.log('🗑️ Banco antigo removido');
-}
 
 app.set('trust proxy', 1);
 app.use(helmet());
@@ -52,34 +45,52 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/api/reset-admin', (req, res) => {
-  const db = getDb();
-  const email = 'nanagui@youtubepontucom';
-  const password = '001010GGZEHEN';
-  db.run('DELETE FROM admins');
-  const hash = bcrypt.hashSync(password, 10);
-  db.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').run([email, hash]);
+// NOTA: o antigo endpoint público "GET /api/reset-admin" foi removido.
+// Ele expunha o email/senha do admin em JSON para qualquer visitante, sem
+// autenticação nenhuma, e ainda resetava as credenciais. Se você precisar
+// resetar a senha do admin no futuro, faça isso por um script local
+// (ex: `node scripts/reset-admin.js`), nunca por uma rota HTTP pública.
+
+/**
+ * Garante que existe um admin, sem nunca apagar dados existentes e sem
+ * duplicar o registro a cada restart do servidor.
+ */
+function ensureAdminSeed(db) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    console.warn('⚠️  ADMIN_EMAIL / ADMIN_PASSWORD não definidos no .env — nenhum admin será criado automaticamente.');
+    return;
+  }
+
+  const existing = db.prepare('SELECT id FROM admins WHERE email = ?').get([adminEmail]);
+  if (existing) {
+    console.log(`ℹ️  Admin já existe: ${adminEmail} (mantido como está)`);
+    return;
+  }
+
+  const hash = bcrypt.hashSync(adminPassword, 10);
+  db.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').run([adminEmail, hash]);
   saveDb();
-  res.json({ success: true, email, password });
-});
+  console.log(`✅ Admin criado: ${adminEmail}`);
+}
 
 (async () => {
   try {
+    // initDatabase() deve criar as tabelas SE NÃO EXISTIREM (CREATE TABLE IF NOT EXISTS).
+    // O arquivo .db nunca é apagado aqui — isso é o que estava causando a perda
+    // de todos os scripts e keys a cada reinício do servidor.
     await initDatabase();
     const db = getDb();
-    const adminEmail = process.env.ADMIN_EMAIL || 'nanagui@youtubepontucom';
-    const adminPassword = process.env.ADMIN_PASSWORD || '001010GGZEHEN';
 
-    const hash = bcrypt.hashSync(adminPassword, 10);
-    db.prepare('INSERT INTO admins (email, password_hash) VALUES (?, ?)').run([adminEmail, hash]);
-    saveDb();
+    ensureAdminSeed(db);
 
-    console.log(`✅ Admin criado: ${adminEmail}`);
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🪐 Rodando na porta ${PORT}`);
     });
   } catch (error) {
-    console.error('❌ Erro:', error);
+    console.error('❌ Erro ao iniciar o servidor:', error);
     process.exit(1);
   }
 })();
