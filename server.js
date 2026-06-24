@@ -1,7 +1,8 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cookieParser = require('cookie-parser');
-const path = require('path');
 const { initDatabase, getDb, saveDb } = require('./database');
 const bcrypt = require('bcryptjs');
 
@@ -11,6 +12,13 @@ const loadRoutes = require('./routes/load');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// 🔥 Remove banco antigo para garantir hash limpo
+const DB_PATH = path.join(__dirname, 'saturn.db');
+if (fs.existsSync(DB_PATH)) {
+  fs.unlinkSync(DB_PATH);
+  console.log('🗑️ Banco antigo removido. Um novo será criado.');
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -31,7 +39,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'login.html')));
 app.get('/admin/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
 
-// Rota de emergência para resetar senha
+// 🚨 Rota de emergência – acesse se o login falhar
 app.get('/api/reset-admin', (req, res) => {
   const db = getDb();
   const username = 'nanagui';
@@ -40,7 +48,7 @@ app.get('/api/reset-admin', (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   db.prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)').run([username, hash]);
   saveDb();
-  res.json({ success: true, username, password });
+  res.json({ success: true, message: 'Admin recriado', username, password });
 });
 
 (async () => {
@@ -49,23 +57,14 @@ app.get('/api/reset-admin', (req, res) => {
 
   const username = process.env.ADMIN_USER || 'nanagui';
   const password = process.env.ADMIN_PASS || '001010GGZEHEN';
-  const existing = db.prepare('SELECT id FROM admins WHERE username = ?').get([username]);
-  if (!existing) {
-    const hash = bcrypt.hashSync(password, 10);
-    // 🔥 CORREÇÃO: password_hash (nome correto da coluna)
-    db.prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)').run([username, hash]);
-    saveDb();
-    console.log(`✅ Admin criado: ${username}`);
-  } else {
-    // Garantir que o hash não está vazio (corrige registros antigos)
-    const admin = db.prepare('SELECT password_hash FROM admins WHERE username = ?').get([username]);
-    if (!admin.password_hash || admin.password_hash === '') {
-      const hash = bcrypt.hashSync(password, 10);
-      db.prepare('UPDATE admins SET password_hash = ? WHERE username = ?').run([hash, username]);
-      saveDb();
-      console.log(`🔧 Hash do admin ${username} foi corrigido`);
-    }
-  }
+
+  // Remover qualquer registro antigo e criar um novo
+  db.run('DELETE FROM admins WHERE username = ?', [username]);
+  const hash = bcrypt.hashSync(password, 10);
+  db.prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)').run([username, hash]);
+  saveDb();
+
+  console.log(`✅ Admin criado: ${username}`);
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🪐 Saturn Storage rodando em http://0.0.0.0:${PORT}`);
