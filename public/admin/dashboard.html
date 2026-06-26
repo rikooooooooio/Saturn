@@ -152,6 +152,35 @@
       font-weight: 700;
     }
 
+    /* === CARDS DE ESTATÍSTICAS === */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: transform var(--transition), box-shadow var(--transition);
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+    .stat-value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
     /* === TABELA === */
     .table-wrapper {
       background: var(--surface);
@@ -179,8 +208,16 @@
       font-size: 0.9rem;
     }
     tr:last-child td { border-bottom: none; }
-
-    /* Loader truncado */
+    .status-badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-online { background: rgba(16,185,129,0.15); color: var(--success); }
+    .status-offline { background: rgba(239,68,68,0.15); color: var(--danger); }
     .loader-cell {
       font-family: 'Fira Code', monospace;
       font-size: 0.8rem;
@@ -315,6 +352,7 @@
   </style>
 </head>
 <body>
+  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -325,7 +363,11 @@
       <span>Saturn</span>
     </div>
     <nav class="sidebar-nav">
-      <button data-tab="scripts" class="active">
+      <button data-tab="dashboard" class="active">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </button>
+      <button data-tab="scripts">
         <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         <span>Scripts</span>
       </button>
@@ -336,8 +378,16 @@
     </button>
   </aside>
 
+  <!-- MAIN -->
   <main class="main">
-    <div id="tab-scripts" class="tab-content active">
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="header"><h1>Dashboard</h1></div>
+      <div class="stats-grid" id="statsCards"></div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <div id="tab-scripts" class="tab-content">
       <div class="header">
         <h1>Scripts</h1>
         <div style="display:flex; gap:0.5rem;">
@@ -351,14 +401,15 @@
       </div>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Nome</th><th>Execuções</th><th>Link Curto</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Execuções</th><th>Link Curto</th><th>Sandbox</th><th>Ações</th></tr></thead>
           <tbody id="scriptsTable"></tbody>
         </table>
       </div>
     </div>
   </main>
 
-  <!-- Modal Script -->
+  <!-- MODAIS -->
+  <!-- Modal Script (criação/edição) -->
   <div id="scriptModal" class="modal">
     <div class="modal-box">
       <h2 id="modalTitle">Novo Script</h2>
@@ -366,6 +417,9 @@
         <input type="hidden" id="scriptId">
         <label>Nome</label><input type="text" id="scriptName" required>
         <label>Código</label><textarea id="scriptContent" required></textarea>
+        <label style="display:flex;align-items:center;gap:0.5rem; margin-top:1rem;">
+          <input type="checkbox" id="scriptSandbox" style="width:auto;"> Modo Sandbox (apenas admin executa)
+        </label>
         <div style="margin-top:1.5rem; display:flex; gap:1rem; justify-content:flex-end;">
           <button type="button" class="btn btn-danger" onclick="closeModal('scriptModal')">Cancelar</button>
           <button type="submit" class="btn btn-primary">Salvar</button>
@@ -374,8 +428,31 @@
     </div>
   </div>
 
+  <!-- Modal Changelog -->
+  <div id="changelogModal" class="modal">
+    <div class="modal-box">
+      <h2>Enviar Changelog para Discord</h2>
+      <form id="changelogForm">
+        <input type="hidden" id="changelogScriptId">
+        <label>Título do Embed</label>
+        <input type="text" id="changelogTitle" placeholder="Ex: Nova atualização!">
+        <label>Descrição</label>
+        <textarea id="changelogDesc" rows="4" placeholder="Descreva as mudanças..."></textarea>
+        <label>URL do Banner (opcional)</label>
+        <input type="url" id="changelogBanner" placeholder="https://i.imgur.com/...">
+        <label>URL da Thumbnail (opcional)</label>
+        <input type="url" id="changelogThumb" placeholder="https://i.imgur.com/...">
+        <div style="margin-top:1.5rem; display:flex; gap:1rem; justify-content:flex-end;">
+          <button type="button" class="btn btn-danger" onclick="closeModal('changelogModal')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Enviar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- Scripts JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/lua/lua.min.js"></script>
   <script>
@@ -403,46 +480,67 @@
       return res;
     }
 
+    // -- NAVEGAÇÃO --
+    document.querySelectorAll('.sidebar-nav button[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const tab = document.getElementById('tab-'+btn.dataset.tab);
+        if (tab) tab.classList.add('active');
+        if (btn.dataset.tab === 'dashboard') loadDashboard();
+        else if (btn.dataset.tab === 'scripts') loadScripts();
+      });
+    });
+
+    // -- DASHBOARD --
+    async function loadDashboard() {
+      const stats = await api('/api/stats');
+      document.getElementById('statsCards').innerHTML = `
+        <div class="stat-card"><div class="stat-label">Total Scripts</div><div class="stat-value">${stats.totalScripts}</div></div>
+        <div class="stat-card"><div class="stat-label">Online</div><div class="stat-value" style="color:var(--success)">${stats.onlineScripts}</div></div>
+        <div class="stat-card"><div class="stat-label">Execuções Hoje</div><div class="stat-value">${stats.executionsToday||0}</div></div>
+        <div class="stat-card"><div class="stat-label">Total Execuções</div><div class="stat-value">${stats.totalExecutions}</div></div>
+      `;
+    }
+
     // -- SCRIPTS --
     async function loadScripts() {
-      try {
-        const scripts = await api('/api/scripts');
-        const tbody = document.getElementById('scriptsTable');
-        if (!scripts.length) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">Nenhum script criado.</td></tr>';
-          return;
-        }
-        tbody.innerHTML = scripts.map(s => `
-          <tr>
-            <td><strong>${escapeHTML(s.name)}</strong></td>
-            <td>${s.executions||0}</td>
-            <td><span class="loader-cell" title="${location.origin}/s/${s.short_id}">/s/${s.short_id||'—'}</span></td>
-            <td>
-              <button class="btn btn-sm" onclick="editScript('${s.id}')" title="Editar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <button class="btn btn-sm" onclick="copyLoader('${s.id}')" title="Copiar Loader">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </button>
-              <button class="btn btn-sm" onclick="copyShort('${s.short_id}')" title="Link Curto">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              </button>
-              <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')" title="Excluir">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>
-            </td>
-          </tr>
-        `).join('');
-      } catch (e) {
-        console.error(e);
-        showToast('Erro ao carregar scripts.', 'error');
+      const scripts = await api('/api/scripts');
+      const tbody = document.getElementById('scriptsTable');
+      if (!scripts.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">Nenhum script criado.</td></tr>';
+        return;
       }
+      tbody.innerHTML = scripts.map(s => `
+        <tr>
+          <td><strong>${escapeHTML(s.name)}</strong></td>
+          <td>${s.executions||0}</td>
+          <td><span class="loader-cell" title="${location.origin}/s/${s.short_id}">/s/${s.short_id||'—'}</span></td>
+          <td>${s.sandbox ? '<span title="Apenas admin" style="color:#f59e0b;">🔒</span>' : '—'}</td>
+          <td>
+            <button class="btn btn-sm" onclick="editScript('${s.id}')" title="Editar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn btn-sm" onclick="copyLoader('${s.id}')" title="Copiar Loader">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button class="btn btn-sm" onclick="copyShort('${s.short_id}')" title="Link Curto">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </button>
+            <button class="btn btn-sm" onclick="openChangelog('${s.id}')" title="Enviar Changelog">📢</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')" title="Excluir">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </td>
+        </tr>
+      `).join('');
     }
 
     function copyLoader(id) { navigator.clipboard.writeText(`${location.origin}/api/load/${id}`); showToast('Loader copiado!'); }
     function copyShort(sid) { navigator.clipboard.writeText(`${location.origin}/s/${sid}`); showToast('Link curto copiado!'); }
 
-    // -- Editor --
+    // -- EDITOR --
     let editor;
     function initEditor() {
       if (!editor) {
@@ -465,10 +563,12 @@
         document.getElementById('modalTitle').textContent = 'Editar Script';
         document.getElementById('scriptId').value = script.id;
         document.getElementById('scriptName').value = script.name;
+        document.getElementById('scriptSandbox').checked = script.sandbox || false;
         editor.setValue(script.content||'');
       } else {
         document.getElementById('modalTitle').textContent = 'Novo Script';
         document.getElementById('scriptId').value = '';
+        document.getElementById('scriptSandbox').checked = false;
         editor.setValue('');
       }
     }
@@ -494,16 +594,44 @@
       const id = document.getElementById('scriptId').value;
       const name = document.getElementById('scriptName').value.trim();
       const content = editor.getValue();
+      const sandbox = document.getElementById('scriptSandbox').checked;
       if (!name || !content) return showToast('Nome e conteúdo são obrigatórios.', 'error');
       const url = id ? '/api/scripts/'+id : '/api/scripts';
       const method = id ? 'PUT' : 'POST';
-      await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, content, status: 'online'})});
+      await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, content, sandbox})});
       closeModal('scriptModal');
       loadScripts();
       showToast(id ? 'Script atualizado!' : 'Script criado!');
     });
 
-    // Export Backup
+    // -- CHANGELOG --
+    function openChangelog(scriptId) {
+      document.getElementById('changelogScriptId').value = scriptId;
+      document.getElementById('changelogTitle').value = '';
+      document.getElementById('changelogDesc').value = '';
+      document.getElementById('changelogBanner').value = '';
+      document.getElementById('changelogThumb').value = '';
+      document.getElementById('changelogModal').classList.add('show');
+    }
+
+    document.getElementById('changelogForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('changelogScriptId').value;
+      const title = document.getElementById('changelogTitle').value.trim();
+      const description = document.getElementById('changelogDesc').value.trim();
+      const banner = document.getElementById('changelogBanner').value.trim();
+      const thumbnail = document.getElementById('changelogThumb').value.trim();
+
+      await api(`/api/scripts/${id}/changelog`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, banner, thumbnail })
+      });
+      closeModal('changelogModal');
+      showToast('Changelog enviado ao Discord!');
+    });
+
+    // -- IMPORT/EXPORT --
     async function exportData() {
       const data = await api('/api/export');
       const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
@@ -513,52 +641,29 @@
       a.click();
       showToast('Backup exportado!');
     }
-
-    // Import Backup (JSON)
     async function importBackup(event) {
       const file = event.target.files[0];
       if (!file) return;
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        const res = await api('/api/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-        loadScripts();
-        showToast(`${res.imported} scripts importados!`);
-      } catch (err) {
-        showToast('Arquivo inválido.', 'error');
-      }
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await api('/api/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+      loadScripts();
+      showToast(`${res.imported} scripts importados!`);
       event.target.value = '';
     }
-
-    // Import .txt (múltiplos arquivos)
     async function importTxtFilesHandler(event) {
       const files = Array.from(event.target.files);
-      if (files.length === 0) return;
-
+      if (!files.length) return;
       const scriptsToCreate = [];
       for (const file of files) {
         if (!file.name.endsWith('.txt')) continue;
         const content = await file.text();
-        const name = file.name.replace(/\.txt$/i, '');
-        scriptsToCreate.push({ name, content });
+        scriptsToCreate.push({ name: file.name.replace(/\.txt$/i, ''), content });
       }
-
-      if (scriptsToCreate.length === 0) {
-        showToast('Nenhum arquivo .txt válido encontrado.', 'error');
-        return;
-      }
-
-      try {
-        const res = await api('/api/scripts/bulk', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scripts: scriptsToCreate })
-        });
-        showToast(`${res.length} script(s) criado(s) a partir dos arquivos .txt!`);
-        loadScripts();
-      } catch (err) {
-        showToast('Erro ao importar arquivos.', 'error');
-      }
+      if (!scriptsToCreate.length) return showToast('Nenhum arquivo .txt válido.', 'error');
+      await api('/api/scripts/bulk', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({scripts:scriptsToCreate})});
+      loadScripts();
+      showToast(`${scriptsToCreate.length} script(s) importados!`);
       event.target.value = '';
     }
 
@@ -566,15 +671,16 @@
       api('/api/auth/logout', {method:'POST'}).then(() => window.location.href = '/admin');
     }
 
+    // Fechar modais ao clicar fora
     document.querySelectorAll('.modal').forEach(m => {
       m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('show'); });
     });
 
-    // Verifica autenticação ao carregar
+    // Inicial
     (async () => {
       try {
         await api('/api/auth/me');
-        loadScripts();
+        loadDashboard();
       } catch {
         window.location.href = '/admin';
       }
