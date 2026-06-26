@@ -30,7 +30,7 @@ const PORT = process.env.PORT || 3000;
    CONFIGURAÇÕES
    ============================================================ */
 const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_SECRET = process.env.COOKIE_SECRET;
+const COOKIE_SECRET = process.env.COOKIE_SECRET; // não usado para assinatura, mas mantido como exigência
 const ADMIN_ROUTE_SECRET = process.env.ADMIN_ROUTE_SECRET;
 const DYNAMIC_ADMIN_PATH = '/painel';   // rota fixa
 
@@ -84,7 +84,7 @@ app.use(helmet({
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cookieParser());   // sem COOKIE_SECRET para assinatura
+app.use(cookieParser());   // sem assinatura
 
 /* ============================================================
    CORS PARA API PÚBLICA
@@ -154,7 +154,7 @@ const loaderLimiter = rateLimit({ windowMs: 1*60*1000, max: 300 });
 const masterActionLimiter = rateLimit({ windowMs: 5*60*1000, max: 15, message: { error: 'Muitas ações administrativas.' } });
 
 /* ============================================================
-   CSRF (COM LAX)
+   CSRF (APENAS PARA ROTAS DE API, EXCLUI LOGIN/2FA)
    ============================================================ */
 function genCsrf() { return crypto.randomBytes(32).toString('hex'); }
 app.get('/api/csrf-token', (req, res) => {
@@ -246,8 +246,9 @@ async function discordEmbed({ title, description, banner, thumbnail, scriptName 
   axios.post(DISCORD_WEBHOOK_URL, { embeds: [embed] }, { timeout: 5000 }).catch(e => console.error('[DISCORD]', e.message));
 }
 
+// Middleware de autenticação
 async function auth(req, res, next) {
-  const t = req.cookies?.token;       // cookie normal, sem assinatura
+  const t = req.cookies?.token;
   if (!t) return res.status(401).json({ error: 'Token ausente' });
   if (isBlacklisted(t)) { 
     res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
@@ -289,51 +290,94 @@ app.get('/api/health', (req, res) => {
 app.get('/api/ping', (req, res) => res.json({ pong: true, time: Date.now() }));
 
 /* ============================================================
-   AUTENTICAÇÃO (COOKIES NORMAIS)
+   AUTENTICAÇÃO (FORMULÁRIO HTML + REDIRECIONAMENTO)
    ============================================================ */
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
-  if (typeof username !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Dados inválidos.' });
+  if (typeof username !== 'string' || typeof password !== 'string') return res.redirect(`${DYNAMIC_ADMIN_PATH}?error=1`);
+
   const admin = DB.admins.find(a => a.username.toLowerCase() === username.toLowerCase());
-  if (!admin) { await bcrypt.compare(password, FAKE_HASH); return res.status(401).json({ error: 'Credenciais inválidas' }); }
-  if (admin.lockUntil && admin.lockUntil > Date.now()) return res.status(423).json({ error: 'Conta bloqueada', locked: true });
+  if (!admin) {
+    await bcrypt.compare(password, FAKE_HASH);
+    return res.redirect(`${DYNAMIC_ADMIN_PATH}?error=1`);
+  }
+  if (admin.lockUntil && admin.lockUntil > Date.now()) {
+    return res.redirect(`${DYNAMIC_ADMIN_PATH}?error=locked`);
+  }
   const isMatch = await bcrypt.compare(password, admin.password_hash);
   if (!isMatch) {
-    admin.failedAttempts++; 
-    if (admin.failedAttempts >= 5) { admin.lockUntil = Date.now() + 15*60*1000; admin.failedAttempts = 0; } 
+    admin.failedAttempts++;
+    if (admin.failedAttempts >= 5) {
+      admin.lockUntil = Date.now() + 15*60*1000;
+      admin.failedAttempts = 0;
+    }
     deferredSave();
-    return res.status(401).json({ error: 'Credenciais inválidas' });
+    return res.redirect(`${DYNAMIC_ADMIN_PATH}?error=1`);
   }
-  admin.failedAttempts = 0; admin.lockUntil = null; deferredSave();
-  if (admin.twofa_enabled) return res.json({ require2FA: true, tempToken: jwt.sign({ id: admin.id, username, require2FA: true }, JWT_SECRET, { expiresIn: '5m' }) });
+  admin.failedAttempts = 0;
+  admin.lockUntil = null;
+  deferredSave();
+
+  if (admin.twofa_enabled) {
+    const tempToken = jwt.sign({ id: admin.id, username, require2FA: true }, JWT_SECRET, { expiresIn: '5m' });
+    res.cookie('temp_token', tempToken, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 5*60*1000 });
+    return res.redirect(`${DYNAMIC_ADMIN_PATH}/2fa`);
+  }
+
   const token = jwt.sign({ id: admin.id, username, role: admin.role || 'admin' }, JWT_SECRET, { expiresIn: '8h' });
   res.cookie('token', token, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 8*3600*1000 });
   addLog(req, 'login', username);
-  res.json({ success: true, redirectPath: `${DYNAMIC_ADMIN_PATH}/dashboard` });
+  return res.redirect(`${DYNAMIC_ADMIN_PATH}/dashboard`);
 });
 
+// Página de 2FA
+app.get(`${DYNAMIC_ADMIN_PATH}/2fa`, (req, res) => {
+  if (!req.cookies?.temp_token) return res.redirect(DYNAMIC_ADMIN_PATH);
+  res.sendFile(path.join(__dirname, 'public/admin/2fa.html'));
+});
+
+// Verificação 2FA via formulário
 app.post('/api/auth/verify-2fa', twofaLimiter, (req, res) => {
-  const { tempToken, code } = req.body;
-  let p; try { p = jwt.verify(tempToken, JWT_SECRET); if (!p.require2FA) throw new Error(); } catch { return res.status(401).json({ error: 'Token temporário inválido' }); }
-  const admin = DB.admins.find(a => a.id === p.id);
-  if (!admin?.twofa_secret) return res.status(400).json({ error: '2FA não configurado' });
-  if (!speakeasy.totp.verify({ secret: admin.twofa_secret, encoding: 'base32', token: code, window: 1 })) return res.status(401).json({ error: 'Código inválido' });
+  const { code } = req.body;
+  const tempToken = req.cookies?.temp_token;
+  if (!tempToken) return res.redirect(`${DYNAMIC_ADMIN_PATH}?error=1`);
+
+  let payload;
+  try {
+    payload = jwt.verify(tempToken, JWT_SECRET);
+    if (!payload.require2FA) throw new Error();
+  } catch {
+    return res.redirect(`${DYNAMIC_ADMIN_PATH}?error=1`);
+  }
+
+  const admin = DB.admins.find(a => a.id === payload.id);
+  if (!admin?.twofa_secret) return res.redirect(`${DYNAMIC_ADMIN_PATH}?error=1`);
+
+  if (!speakeasy.totp.verify({ secret: admin.twofa_secret, encoding: 'base32', token: code, window: 1 })) {
+    return res.redirect(`${DYNAMIC_ADMIN_PATH}/2fa?error=1`);
+  }
+
   const token = jwt.sign({ id: admin.id, username: admin.username, role: admin.role || 'admin' }, JWT_SECRET, { expiresIn: '8h' });
   res.cookie('token', token, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 8*3600*1000 });
-  res.json({ success: true, redirectPath: `${DYNAMIC_ADMIN_PATH}/dashboard` });
+  res.clearCookie('temp_token');
+  addLog(req, 'login_2fa', admin.username);
+  return res.redirect(`${DYNAMIC_ADMIN_PATH}/dashboard`);
 });
 
-app.post('/api/auth/logout', (req, res) => { 
-  const t = req.cookies?.token; 
-  if (t) blacklist(t); 
-  res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
-  res.clearCookie('csrf_token', { secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
-  res.json({ success: true, redirectPath: DYNAMIC_ADMIN_PATH }); 
+// Logout
+app.get('/api/auth/logout', (req, res) => {
+  const t = req.cookies?.token;
+  if (t) blacklist(t);
+  res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' });
+  res.clearCookie('csrf_token', { secure: IS_PRODUCTION, sameSite: 'lax', path: '/' });
+  res.clearCookie('temp_token', { secure: IS_PRODUCTION, sameSite: 'lax', path: '/' });
+  return res.redirect(DYNAMIC_ADMIN_PATH);
 });
 
+// Obter dados do usuário logado (para o dashboard)
 app.get('/api/auth/me', auth, (req, res) => res.json({ username: req.user.username, role: req.user.role || 'admin', twofa_enabled: DB.admins.find(a => a.id === req.user.id)?.twofa_enabled || false }));
 
-// 2FA (rotas mantidas iguais)
+// 2FA Setup
 app.get('/api/auth/2fa/setup', auth, twofaLimiter, (req, res) => {
   const a = DB.admins.find(a => a.id === req.user.id); if (!a) return res.status(404).json({ error: 'Admin não encontrado' });
   const sec = speakeasy.generateSecret({ name: `Astro:${a.username}` }); a.twofa_secret = sec.base32; a.twofa_enabled = false; deferredSave();
@@ -371,7 +415,7 @@ app.post('/api/auth/change-password', auth, async (req, res) => {
 });
 
 /* ============================================================
-   SCRIPTS (CRUD completo mantido)
+   SCRIPTS (CRUD)
    ============================================================ */
 app.use('/api/scripts', apiLimiter);
 app.get('/api/scripts', auth, (req, res) => res.json(DB.scripts.map(s => ({ id: s.id, name: s.name, status: s.status, sandbox: s.sandbox||false, executions: s.executions||0, short_id: s.short_id, version: s.version||'1.0.0', created_at: s.created_at, updated_at: s.updated_at }))));
