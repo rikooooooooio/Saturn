@@ -33,7 +33,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_SECRET = process.env.COOKIE_SECRET;
 const ADMIN_ROUTE_SECRET = process.env.ADMIN_ROUTE_SECRET;
 
-// 🔧 ROTA FIXA (troque por '/painel' se quiser evitar o hash)
+// 🔧 ROTA FIXA para o painel (não ofuscada, fácil acesso)
 const DYNAMIC_ADMIN_PATH = '/painel';
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
@@ -249,8 +249,12 @@ async function discordEmbed({ title, description, banner, thumbnail, scriptName 
 }
 
 async function auth(req, res, next) {
-  const t = req.signedCookies?.token; if (!t) return res.status(401).json({ error: 'Token ausente' });
-  if (isBlacklisted(t)) { res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true }); return res.status(401).json({ error: 'Token inválido' }); }
+  const t = req.signedCookies?.token; 
+  if (!t) return res.status(401).json({ error: 'Token ausente' });
+  if (isBlacklisted(t)) { 
+    res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true }); 
+    return res.status(401).json({ error: 'Token inválido' }); 
+  }
   try { 
     const decoded = jwt.verify(t, JWT_SECRET); 
     const admin = DB.admins.find(a => a.id === decoded.id);
@@ -287,7 +291,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/ping', (req, res) => res.json({ pong: true, time: Date.now() }));
 
 /* ============================================================
-   AUTENTICAÇÃO
+   AUTENTICAÇÃO (COOKIES COM LAX)
    ============================================================ */
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
@@ -321,7 +325,14 @@ app.post('/api/auth/verify-2fa', twofaLimiter, (req, res) => {
   res.json({ success: true, redirectPath: `${DYNAMIC_ADMIN_PATH}/dashboard` });
 });
 
-app.post('/api/auth/logout', (req, res) => { const t = req.signedCookies?.token; if (t) blacklist(t); res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true }); res.clearCookie('csrf_token', { secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); res.json({ success: true, redirectPath: DYNAMIC_ADMIN_PATH }); });
+app.post('/api/auth/logout', (req, res) => { 
+  const t = req.signedCookies?.token; 
+  if (t) blacklist(t); 
+  res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true }); 
+  res.clearCookie('csrf_token', { secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
+  res.json({ success: true, redirectPath: DYNAMIC_ADMIN_PATH }); 
+});
+
 app.get('/api/auth/me', auth, (req, res) => res.json({ username: req.user.username, role: req.user.role || 'admin', twofa_enabled: DB.admins.find(a => a.id === req.user.id)?.twofa_enabled || false }));
 
 // 2FA
@@ -342,25 +353,20 @@ app.post('/api/auth/2fa/disable', auth, twofaLimiter, (req, res) => {
 });
 
 /* ============================================================
-   ENDPOINT PARA TROCAR SENHA
+   TROCAR SENHA
    ============================================================ */
 app.post('/api/auth/change-password', auth, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Senha atual e nova são obrigatórias.' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'Nova senha deve ter no mínimo 8 caracteres.' });
-  
   const admin = DB.admins.find(a => a.id === req.user.id);
   if (!admin) return res.status(404).json({ error: 'Admin não encontrado.' });
-  
   const isMatch = await bcrypt.compare(currentPassword, admin.password_hash);
   if (!isMatch) return res.status(401).json({ error: 'Senha atual incorreta.' });
-  
   admin.password_hash = await bcrypt.hash(newPassword, 10);
   admin.passwordChangedAt = Date.now();
-  
   const token = req.signedCookies?.token;
   if (token) blacklist(token);
-  
   addLog(req, 'change_password', req.user.username);
   saveDb();
   res.json({ success: true, message: 'Senha alterada. Todas as sessões foram invalidadas.' });
@@ -462,35 +468,35 @@ app.post('/api/scripts/:id/changelog', auth, async (req, res) => {
   res.json({ success: true });
 });
 
-// Export/Import com histórico de Backups múltiplos
+// Export/Import
 app.get('/api/export', auth, masterOnly, masterActionLimiter, (req, res) => res.json({ scripts: DB.scripts, versions: DB.versions, exported_at: new Date().toISOString() }));
-
 app.post('/api/import', auth, masterOnly, masterActionLimiter, (req, res) => {
   const { scripts, versions, confirmation } = req.body;
   if (confirmation !== 'IMPORTAR') return res.status(400).json({ error: 'Confirmação necessária.' });
   if (!Array.isArray(scripts)) return res.status(400).json({ error: 'Formato inválido' });
-  if (scripts.length > 500) return res.status(400).json({ error: 'Ação abortada: Limite máximo de 500 scripts por base.' });
+  if (scripts.length > 500) return res.status(400).json({ error: 'Limite máximo de 500 scripts.' });
   for (const s of scripts) {
-    if (!s.id || !s.name || !s.content) return res.status(400).json({ error: 'Scripts devem conter id, name, content e token.' });
-    if (typeof s.name !== 'string' || s.name.length > MAX_NAME) return res.status(400).json({ error: `Nome inválido ou maior que ${MAX_NAME}` });
-    if (typeof s.content !== 'string' || s.content.length > MAX_CONTENT) return res.status(400).json({ error: `Conteúdo maior que o limite configurado.` });
-    if (s.status && !VALID_STATUS.includes(s.status)) return res.status(400).json({ error: `Status estrutural inválido.` });
+    if (!s.id || !s.name || !s.content) return res.status(400).json({ error: 'Scripts devem ter id, name, content.' });
+    if (typeof s.name !== 'string' || s.name.length > MAX_NAME) return res.status(400).json({ error: `Nome inválido.` });
+    if (typeof s.content !== 'string' || s.content.length > MAX_CONTENT) return res.status(400).json({ error: `Conteúdo muito grande.` });
+    if (s.status && !VALID_STATUS.includes(s.status)) return res.status(400).json({ error: `Status inválido.` });
     s.token = s.token || secureToken();
   }
   DB.backups.push({ id: crypto.randomBytes(4).toString('hex'), scripts: [...DB.scripts], versions: [...DB.versions], created_at: new Date().toISOString() });
   if (DB.backups.length > 5) DB.backups.shift();
   DB.scripts = scripts;
   DB.versions = Array.isArray(versions) ? versions : [];
-  addLog(req, 'import_database', `${DB.scripts.length} scripts estruturados`);
+  addLog(req, 'import_database', `${DB.scripts.length} scripts`);
   saveDb();
   res.json({ success: true, imported: DB.scripts.length });
 });
 
-// Endpoint de recuperação de backups antigos
+// Backups
+app.get('/api/backups', auth, masterOnly, (req, res) => res.json(DB.backups.map(b => ({ id: b.id, scripts: b.scripts.length, created_at: b.created_at }))));
 app.post('/api/import/restore-backup', auth, masterOnly, masterActionLimiter, (req, res) => {
   const { backupId } = req.body;
   const b = DB.backups.find(bk => bk.id === backupId);
-  if (!b) return res.status(404).json({ error: 'Backup histórico não localizado.' });
+  if (!b) return res.status(404).json({ error: 'Backup não encontrado.' });
   DB.scripts = [...b.scripts];
   DB.versions = [...b.versions];
   addLog(req, 'restore_backup', `ID: ${backupId}`);
@@ -498,16 +504,10 @@ app.post('/api/import/restore-backup', auth, masterOnly, masterActionLimiter, (r
   res.json({ success: true, scriptsRestored: DB.scripts.length });
 });
 
-// Listar backups disponíveis
-app.get('/api/backups', auth, masterOnly, (req, res) => {
-  res.json(DB.backups.map(b => ({ id: b.id, scripts: b.scripts.length, created_at: b.created_at })));
-});
-
-// Ver Logs Administrativos
+// Logs
 app.get('/api/logs', auth, masterOnly, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
-  const logs = DB.logs.slice(-limit).reverse();
-  res.json(logs);
+  res.json(DB.logs.slice(-limit).reverse());
 });
 
 // Stats
@@ -517,15 +517,13 @@ app.get('/api/stats', auth, (req, res) => {
 });
 
 /* ============================================================
-   LOADER PROTEGIDO COM DUPLA CAMADA (SHORTID + TOKEN EXCLUSIVO)
+   LOADER
    ============================================================ */
 app.get('/api/load/:shortId/:token', loaderLimiter, (req, res) => {
   if (MAINTENANCE_MODE) return res.status(503).send('Em manutenção.');
   const s = DB.scripts.find(s => s.short_id === req.params.shortId);
   if (!s || s.status !== 'online') return res.status(404).send('Script indisponível.');
-  if (!s.token || req.params.token !== s.token) {
-    return res.status(403).send('Acesso negado: Token de execução inválido.');
-  }
+  if (!s.token || req.params.token !== s.token) return res.status(403).send('Token inválido.');
   if (s.sandbox) { 
     const tok = req.signedCookies?.token; 
     try { jwt.verify(tok, JWT_SECRET); } catch { return res.status(403).send('Acesso restrito.'); } 
@@ -540,7 +538,6 @@ app.get('/api/load/:shortId/:token', loaderLimiter, (req, res) => {
   res.type('text/plain').send(s.content);
 });
 
-// Link curto redirecionando com token
 app.get('/s/:shortId', (req, res) => { 
   const s = DB.scripts.find(s => s.short_id === req.params.shortId); 
   if (!s) return res.status(404).send('Link não encontrado.'); 
@@ -587,7 +584,7 @@ const ADMIN_USER = process.env.ADMIN_USER, ADMIN_PASS = process.env.ADMIN_PASS;
 })();
 
 /* ============================================================
-   TRATAMENTO DE ERROS GLOBAL
+   TRATAMENTO DE ERROS
    ============================================================ */
 app.use((err, req, res, next) => { 
   console.error('❌', err); 
