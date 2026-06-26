@@ -5,102 +5,201 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Saturn — Scripts</title>
   <style>
-    :root { --bg:#0a0a0a; --surface:#111; --border:#1f1f1f; --text:#fff; --text2:#a0a0a0; --radius:12px; }
+    :root { 
+      --bg:#0a0a0a; --surface:#151515; --border:#2a2a2a; 
+      --text:#fff; --text2:#a0a0a0; --primary:#6366f1; 
+      --danger:#ef4444; --success:#10b981; --radius:12px; 
+    }
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; }
-    .sidebar { width:240px; background:var(--surface); border-right:1px solid var(--border); padding:1.5rem; display:flex; flex-direction:column; gap:2rem; }
-    .sidebar h2 { font-size:1.2rem; font-weight:800; }
-    .logout { margin-top:auto; color:#f44; cursor:pointer; font-weight:600; background:none; border:none; text-align:left; font-size:1rem; }
-    .main { flex:1; padding:2rem; overflow-y:auto; }
-    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; }
-    .header h1 { font-size:1.8rem; }
-    .btn { padding:0.6rem 1.2rem; border-radius:8px; font-weight:600; cursor:pointer; border:none; background:#fff; color:#000; }
-    .btn-danger { background:transparent; color:#f44; border:1px solid #f44; }
-    .btn-sm { padding:0.3rem 0.7rem; font-size:0.8rem; }
-    table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:var(--radius); overflow:hidden; }
-    th { background:#1a1a1a; padding:0.8rem; text-align:left; font-size:0.8rem; color:var(--text2); }
-    td { padding:0.8rem; border-bottom:1px solid var(--border); }
-    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; }
-    .modal.show { display:flex; }
-    .modal-box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2rem; width:500px; }
-    input, textarea { width:100%; padding:0.7rem; background:#1a1a1a; border:1px solid var(--border); border-radius:8px; color:#fff; margin-top:0.5rem; }
-    textarea { height:200px; resize:vertical; font-family:'Fira Code',monospace; }
-    .toast { position:fixed; bottom:20px; right:20px; background:#0c6; color:#000; padding:0.8rem 1.5rem; border-radius:8px; font-weight:600; }
+    body { font-family:'Inter', system-ui, sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; }
+    
+    /* Layout */
+    .sidebar { width:260px; background:var(--surface); border-right:1px solid var(--border); padding:2rem; display:flex; flex-direction:column; gap:2rem; }
+    .sidebar h2 { font-size:1.5rem; font-weight:800; display:flex; align-items:center; gap:0.5rem;}
+    .logout { margin-top:auto; color:var(--danger); cursor:pointer; font-weight:600; background:none; border:none; text-align:left; font-size:1rem; transition: opacity 0.2s; }
+    .logout:hover { opacity: 0.8; }
+    .main { flex:1; padding:3rem; overflow-y:auto; }
+    
+    /* Header & Buttons */
+    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:2.5rem; }
+    .header h1 { font-size:2rem; }
+    .header-actions { display:flex; gap:0.8rem; }
+    
+    .btn { padding:0.6rem 1.2rem; border-radius:8px; font-weight:600; cursor:pointer; border:none; background:#fff; color:#000; transition: transform 0.1s, opacity 0.2s; display:inline-flex; align-items:center; justify-content:center; gap:0.4rem; }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-danger { background:transparent; color:var(--danger); border:1px solid var(--danger); }
+    .btn-danger:hover { background:rgba(239, 68, 68, 0.1); }
+    .btn-primary { background:var(--primary); color:#fff; }
+    .btn-sm { padding:0.4rem 0.8rem; font-size:0.85rem; }
+    
+    /* Table */
+    .table-container { border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); }
+    table { width:100%; border-collapse:collapse; }
+    th { background:#111; padding:1rem; text-align:left; font-size:0.85rem; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em; }
+    td { padding:1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    .status-badge { padding:0.2rem 0.6rem; border-radius:999px; font-size:0.75rem; font-weight:700; text-transform:uppercase; }
+    .status-online { background:rgba(16, 185, 129, 0.15); color:var(--success); }
+    .status-offline { background:rgba(239, 68, 68, 0.15); color:var(--danger); }
+    
+    /* Modal */
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); justify-content:center; align-items:center; opacity:0; transition:opacity 0.2s; z-index: 100; }
+    .modal.show { display:flex; opacity:1; }
+    .modal-box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2rem; width:100%; max-width:550px; transform:scale(0.95); transition:transform 0.2s; }
+    .modal.show .modal-box { transform:scale(1); }
+    .modal-header { margin-bottom: 1.5rem; }
+    
+    /* Forms */
+    label { display:block; margin-top:1.2rem; margin-bottom:0.4rem; color:var(--text2); font-size:0.9rem; }
+    input, select, textarea { width:100%; padding:0.8rem; background:#111; border:1px solid var(--border); border-radius:8px; color:#fff; font-family:inherit; transition:border-color 0.2s; }
+    input:focus, select:focus, textarea:focus { outline:none; border-color:var(--primary); }
+    textarea { height:220px; resize:vertical; font-family:'Fira Code', monospace; font-size: 0.9rem;}
+    
+    /* Toast Notifications */
+    .toast-container { position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:10px; z-index:200; }
+    .toast { background:#fff; color:#000; padding:1rem 1.5rem; border-radius:8px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.5); transform:translateX(120%); transition:transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); display:flex; align-items:center; gap:0.5rem; }
+    .toast.show { transform:translateX(0); }
+    .toast.error { background:var(--danger); color:#fff; }
+    .toast.success { background:var(--success); color:#fff; }
   </style>
 </head>
 <body>
   <aside class="sidebar">
     <h2>🪐 Saturn</h2>
-    <button class="logout" onclick="logout()">🚪 Sair</button>
+    <button class="logout" onclick="logout()">🚪 Sair do Painel</button>
   </aside>
 
   <main class="main">
     <div class="header">
-      <h1>Scripts</h1>
-      <div>
+      <h1>Gerenciar Scripts</h1>
+      <div class="header-actions">
         <button class="btn" onclick="exportData()">📤 Exportar</button>
         <button class="btn" onclick="document.getElementById('importFile').click()">📥 Importar</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-        <button class="btn" onclick="openModal()">+ Novo Script</button>
+        <button class="btn btn-primary" onclick="openModal()">+ Novo Script</button>
       </div>
     </div>
-    <table>
-      <thead><tr><th>Nome</th><th>Status</th><th>Execuções</th><th>Ações</th></tr></thead>
-      <tbody id="scriptsTable"></tbody>
-    </table>
+    
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Nome</th><th>Status</th><th>Execuções</th><th style="text-align:right;">Ações</th></tr></thead>
+        <tbody id="scriptsTable"></tbody>
+      </table>
+    </div>
   </main>
 
-  <!-- Modal -->
   <div id="modal" class="modal">
     <div class="modal-box">
-      <h2 id="modalTitle">Novo Script</h2>
+      <div class="modal-header">
+        <h2 id="modalTitle">Novo Script</h2>
+      </div>
       <form id="scriptForm">
         <input type="hidden" id="scriptId">
-        <label>Nome</label><input type="text" id="scriptName" required>
+        <label>Nome da feature/script</label>
+        <input type="text" id="scriptName" placeholder="Ex: Aimbot V2" required>
+        
         <label>Status</label>
-        <select id="scriptStatus"><option value="online">Online</option><option value="offline">Offline</option></select>
-        <label>Conteúdo</label><textarea id="scriptContent" required></textarea>
-        <div style="margin-top:1rem; display:flex; gap:1rem;">
-          <button type="submit" class="btn">Salvar</button>
+        <select id="scriptStatus">
+          <option value="online">🟢 Online (Ativo)</option>
+          <option value="offline">🔴 Offline (Manutenção)</option>
+        </select>
+        
+        <label>Código-fonte (Conteúdo)</label>
+        <textarea id="scriptContent" placeholder="print('Hello Saturn')" required></textarea>
+        
+        <div style="margin-top:2rem; display:flex; gap:1rem; justify-content:flex-end;">
           <button type="button" class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Script</button>
         </div>
       </form>
     </div>
   </div>
 
+  <div class="toast-container" id="toastContainer"></div>
+
   <script>
-    async function api(url, options = {}) {
-      const res = await fetch(url, { credentials:'include', ...options });
-      if (res.status === 401) window.location.href = '/admin';
-      return res;
+    // --- UTILIDADES ---
+    // Proteção contra XSS: Escapa caracteres HTML para não renderizarem código malicioso no painel
+    const escapeHTML = str => str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = (type === 'success' ? '✅ ' : '❌ ') + message;
+      container.appendChild(toast);
+      
+      requestAnimationFrame(() => toast.classList.add('show'));
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
     }
 
+    async function api(url, options = {}) {
+      try {
+        const res = await fetch(url, { credentials:'include', ...options });
+        if (res.status === 401) window.location.href = '/admin';
+        
+        // Verifica se a resposta é JSON antes de parsear
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Erro na requisição');
+          return data;
+        }
+        return res;
+      } catch (err) {
+        showToast(err.message, 'error');
+        throw err;
+      }
+    }
+
+    // --- LÓGICA DA PÁGINA ---
     async function loadScripts() {
-      const res = await api('/api/scripts');
-      const scripts = await res.json();
-      const tbody = document.getElementById('scriptsTable');
-      tbody.innerHTML = scripts.map(s => `
-        <tr>
-          <td><strong>${s.name}</strong></td>
-          <td>${s.status}</td>
-          <td>${s.executions||0}</td>
-          <td>
-            <button class="btn btn-sm" onclick="editScript('${s.id}')">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')">🗑️</button>
-            <button class="btn btn-sm" onclick="copyLoader('${s.id}')">📋</button>
-          </td>
-        </tr>
-      `).join('');
+      try {
+        const scripts = await api('/api/scripts');
+        const tbody = document.getElementById('scriptsTable');
+        
+        if (scripts.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text2);">Nenhum script criado ainda.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = scripts.map(s => {
+          const statusClass = s.status === 'online' ? 'status-online' : 'status-offline';
+          const statusText = s.status === 'online' ? 'Online' : 'Offline';
+          
+          return `
+          <tr>
+            <td><strong>${escapeHTML(s.name)}</strong></td>
+            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+            <td>${s.executions||0}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-sm" onclick="editScript('${s.id}')" title="Editar">✏️</button>
+              <button class="btn btn-sm" onclick="copyLoader('${s.id}')" title="Copiar URL">📋</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')" title="Excluir">🗑️</button>
+            </td>
+          </tr>
+        `}).join('');
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     function copyLoader(id) {
       navigator.clipboard.writeText(`${location.origin}/api/load/${id}`);
-      alert('Loader copiado!');
+      showToast('Link do Loader copiado para a área de transferência!');
     }
 
     function openModal(script = null) {
       document.getElementById('modal').classList.add('show');
       document.getElementById('scriptForm').reset();
+      
       if (script) {
         document.getElementById('modalTitle').textContent = 'Editar Script';
         document.getElementById('scriptId').value = script.id;
@@ -108,19 +207,27 @@
         document.getElementById('scriptStatus').value = script.status;
         document.getElementById('scriptContent').value = script.content;
       } else {
-        document.getElementById('modalTitle').textContent = 'Novo Script';
+        document.getElementById('modalTitle').textContent = 'Criar Novo Script';
+        document.getElementById('scriptId').value = '';
       }
     }
 
-    function closeModal() { document.getElementById('modal').classList.remove('show'); }
+    function closeModal() { 
+      document.getElementById('modal').classList.remove('show'); 
+    }
 
     async function editScript(id) {
-      const res = await api('/api/scripts/' + id);
-      openModal(await res.json());
+      const scripts = await api('/api/scripts');
+      const script = scripts.find(s => s.id === id);
+      if(script) openModal(script);
     }
 
     async function deleteScript(id) {
-      if (confirm('Excluir?')) { await api('/api/scripts/'+id, {method:'DELETE'}); loadScripts(); }
+      if (confirm('Tem certeza que deseja excluir este script permanentemente?')) { 
+        await api('/api/scripts/'+id, {method:'DELETE'}); 
+        showToast('Script excluído com sucesso.');
+        loadScripts(); 
+      }
     }
 
     document.getElementById('scriptForm').addEventListener('submit', async (e) => {
@@ -129,34 +236,60 @@
       const name = document.getElementById('scriptName').value.trim();
       const content = document.getElementById('scriptContent').value;
       const status = document.getElementById('scriptStatus').value;
-      if (!name || !content) return alert('Preencha nome e conteúdo');
+      
       const url = id ? '/api/scripts/'+id : '/api/scripts';
       const method = id ? 'PUT' : 'POST';
-      await api(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, content, status}) });
+      
+      await api(url, { 
+        method, 
+        headers:{'Content-Type':'application/json'}, 
+        body: JSON.stringify({name, content, status}) 
+      });
+      
+      showToast(id ? 'Script atualizado!' : 'Script criado com sucesso!');
       closeModal();
       loadScripts();
     });
 
     async function exportData() {
-      const res = await api('/api/export');
-      const data = await res.json();
-      const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+      const data = await api('/api/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'saturn_backup.json';
+      a.download = `saturn_backup_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
+      showToast('Backup exportado com sucesso!');
     }
 
     async function importData(event) {
       const file = event.target.files[0];
       if (!file) return;
-      const text = await file.text();
-      const data = JSON.parse(text);
-      await api('/api/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
-      loadScripts();
+      
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const res = await api('/api/import', { 
+          method:'POST', 
+          headers:{'Content-Type':'application/json'}, 
+          body: JSON.stringify(data) 
+        });
+        showToast(`Importação concluída! ${res.imported} scripts carregados.`);
+        loadScripts();
+      } catch (err) {
+        showToast('Erro ao ler o arquivo de backup.', 'error');
+      }
+      event.target.value = ''; // Reseta o input
     }
 
-    function logout() { api('/api/auth/logout', {method:'POST'}).then(() => window.location.href='/admin'); }
+    function logout() { 
+      api('/api/auth/logout', {method:'POST'}).then(() => window.location.href='/admin'); 
+    }
+
+    // Fecha o modal clicando fora dele
+    window.onclick = function(event) {
+      const modal = document.getElementById('modal');
+      if (event.target == modal) { closeModal(); }
+    }
 
     loadScripts();
   </script>
