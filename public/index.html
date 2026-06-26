@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saturn — Script Hub</title>
+  <title>Astro — Script Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
@@ -50,22 +50,6 @@
       to { transform: translateY(0); opacity: 1; }
     }
     .navbar h1 { font-weight: 800; font-size: 1.3rem; letter-spacing: -0.5px; }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: var(--radius-sm);
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      background: #fff;
-      color: #000;
-      transition: 0.2s;
-      font-size: 0.85rem;
-    }
-    .btn-outline { background: transparent; border: 1px solid #333; color: #fff; }
-    .btn-outline:hover { border-color: #fff; background: rgba(255,255,255,0.05); }
 
     .hero {
       text-align: center;
@@ -112,7 +96,6 @@
       display: flex;
       align-items: center;
       gap: 1.2rem;
-      cursor: pointer;
       transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
       opacity: 0;
       transform: translateY(40px);
@@ -121,12 +104,6 @@
     }
     .script-card:nth-child(1) { animation-delay: 0.15s; }
     .script-card:nth-child(2) { animation-delay: 0.25s; }
-    .script-card:nth-child(3) { animation-delay: 0.35s; }
-    .script-card:nth-child(4) { animation-delay: 0.45s; }
-    .script-card:nth-child(5) { animation-delay: 0.55s; }
-    .script-card:nth-child(6) { animation-delay: 0.65s; }
-    .script-card:nth-child(7) { animation-delay: 0.75s; }
-    .script-card:nth-child(8) { animation-delay: 0.85s; }
 
     @keyframes cardRise {
       to { transform: translateY(0); opacity: 1; }
@@ -151,22 +128,14 @@
       left: 100%;
     }
 
-    .card-icon {
-      width: 48px;
-      height: 48px;
+    .card-image {
+      width: 60px;
+      height: 60px;
       border-radius: var(--radius-sm);
-      background: #1a1a1a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background-size: cover;
+      background-position: center;
+      background-color: #1a1a1a;
       flex-shrink: 0;
-    }
-    .card-icon svg {
-      width: 24px;
-      height: 24px;
-      stroke: var(--text-secondary);
-      fill: none;
-      stroke-width: 2;
     }
     .card-info {
       flex: 1;
@@ -215,21 +184,6 @@
     .status-maintenance .status-dot { background: var(--maintenance); }
     .status-development .status-dot { background: var(--development); }
 
-    .card-arrow {
-      flex-shrink: 0;
-      transition: transform 0.3s;
-    }
-    .script-card:hover .card-arrow {
-      transform: translateX(4px);
-    }
-    .card-arrow svg {
-      width: 20px;
-      height: 20px;
-      stroke: var(--text-secondary);
-      fill: none;
-      stroke-width: 2;
-    }
-
     footer {
       margin-top: auto;
       padding: 1.5rem;
@@ -244,14 +198,12 @@
     @media (max-width: 768px) {
       .hero h2 { font-size: 2rem; }
       .script-card { padding: 1.2rem; }
-      .card-icon { width: 40px; height: 40px; }
     }
   </style>
 </head>
 <body>
   <nav class="navbar">
-    <h1>Saturn</h1>
-    <a href="/status" class="btn btn-outline">Status</a>
+    <h1>Astro</h1>
   </nav>
 
   <section class="hero">
@@ -265,27 +217,29 @@
   </section>
 
   <footer>
-    <p>Saturn &copy; 2026 — Scripts para Roblox</p>
+    <p>Astro &copy; 2026 — Scripts para Roblox</p>
   </footer>
 
   <script>
-    // Dados mockados de exemplo
+    // Dados fixos dos dois scripts
     const scriptsMock = [
-      { id: 'abc123', name: 'Blox Fruits', status: 'online', version: '2.1.0', updated_at: '2026-06-20' },
-      { id: 'def456', name: 'Pet Simulator X', status: 'online', version: '1.5.3', updated_at: '2026-06-18' },
-      { id: 'ghi789', name: 'Jailbreak', status: 'offline', version: '3.0.1', updated_at: '2026-05-12' },
-      { id: 'jkl012', name: 'Arsenal', status: 'maintenance', version: '4.2.0', updated_at: '2026-06-22' },
-      { id: 'mno345', name: 'Adopt Me!', status: 'online', version: '1.0.0', updated_at: '2026-06-01' },
-      { id: 'pqr678', name: 'Murder Mystery 2', status: 'development', version: '2.0.0-beta', updated_at: '2026-06-25' }
+      {
+        id: 'growagarden2',
+        name: 'Grow a Garden 2',
+        status: 'online',
+        version: '1.0.0',
+        updated_at: '2026-06-20',
+        image: 'https://search.brave.com/images?q=grow+a+garden+2&source=web' // placeholder
+      },
+      {
+        id: 'musclelegends',
+        name: 'Muscle Legends',
+        status: 'online',
+        version: '1.0.0',
+        updated_at: '2026-06-18',
+        image: 'https://search.brave.com/images?q=muscle+legends&source=web' // placeholder
+      }
     ];
-
-    // Ícones SVG para cada status
-    const statusIcons = {
-      online: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="7 12 11 15 17 9"/></svg>`,
-      offline: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-      maintenance: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-      development: `<svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`
-    };
 
     function renderScripts(scripts) {
       const list = document.getElementById('scriptsList');
@@ -293,10 +247,8 @@
         const statusLabel = { online: 'Online', offline: 'Offline', maintenance: 'Manutenção', development: 'Desenvolvimento' }[s.status] || 'Online';
         const statusClass = `status-${s.status}`;
         return `
-          <div class="script-card" onclick="window.location.href='/get/${s.id}'">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </div>
+          <div class="script-card">
+            <div class="card-image" style="background-image:url(${s.image})"></div>
             <div class="card-info">
               <div class="card-name">${escapeHtml(s.name)}</div>
               <div class="card-meta">
@@ -312,9 +264,6 @@
                   <span class="status-dot"></span> ${statusLabel}
                 </span>
               </div>
-            </div>
-            <div class="card-arrow">
-              <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
           </div>
         `;
