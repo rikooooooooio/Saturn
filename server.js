@@ -65,7 +65,7 @@ function sendChangelogWebhook({ title, description, banner, thumbnail, scriptNam
     description: description || 'Veja as novidades abaixo.',
     color: 0x6366f1,
     timestamp: new Date().toISOString(),
-    footer: { text: 'Astro Storage' }
+    footer: { text: 'Astro Hub' }
   };
   if (banner) embed.image = { url: banner };
   if (thumbnail) embed.thumbnail = { url: thumbnail };
