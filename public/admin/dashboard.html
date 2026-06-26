@@ -5,222 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Saturn Storage — Dashboard</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
-    :root {
-      --bg: #0b0d10;
-      --surface: #11151b;
-      --surface-2: #151b22;
-      --border: #232a33;
-      --text: #e8eef5;
-      --muted: #8b98a7;
-      --accent: #6d5efc;
-
-      --radius: 12px;
-      --transition: 0.18s ease;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
+      margin: 0;
       font-family: Inter, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      background: #0b0d10;
+      color: #e8eef5;
       display: flex;
       height: 100vh;
-      overflow: hidden;
     }
 
-    /* SIDEBAR */
     .sidebar {
-      width: 260px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
+      width: 240px;
+      background: #11151b;
+      padding: 20px;
+      border-right: 1px solid #222;
     }
 
-    .brand {
-      font-weight: 800;
-      letter-spacing: -0.5px;
+    .sidebar h2 {
       font-size: 18px;
-      color: var(--text);
+      margin-bottom: 20px;
     }
 
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      flex: 1;
-    }
-
-    .nav button {
+    .sidebar button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
       background: transparent;
-      border: 1px solid transparent;
-      color: var(--muted);
-      padding: 10px 12px;
-      border-radius: 10px;
-      text-align: left;
-      cursor: pointer;
-      transition: var(--transition);
-      font-weight: 500;
-    }
-
-    .nav button:hover {
-      background: var(--surface-2);
-      color: var(--text);
-    }
-
-    .nav button.active {
-      background: rgba(109,94,252,0.12);
-      border-color: rgba(109,94,252,0.3);
-      color: var(--text);
-    }
-
-    .logout {
-      margin-top: auto;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: transparent;
-      border: 1px solid #2a2f38;
-      color: #ff5b5b;
+      border: 1px solid #333;
+      color: white;
+      border-radius: 8px;
       cursor: pointer;
     }
 
-    /* MAIN */
+    .sidebar button:hover {
+      background: #1a1f27;
+    }
+
     .main {
       flex: 1;
-      padding: 26px;
-      overflow-y: auto;
+      padding: 20px;
     }
 
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 22px;
+    .card {
+      background: #11151b;
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid #222;
+      margin-bottom: 15px;
     }
 
     h1 {
-      font-size: 20px;
-      font-weight: 700;
-    }
-
-    /* BUTTONS */
-    .btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 9px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: var(--transition);
-    }
-
-    .btn:hover {
-      border-color: var(--accent);
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      border: none;
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      opacity: 0.9;
-    }
-
-    .btn-danger {
-      border-color: #ff4d4d;
-      color: #ff4d4d;
-      background: transparent;
-    }
-
-    /* INPUTS */
-    .input, select {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      padding: 9px 12px;
-      border-radius: 10px;
-      color: var(--text);
-      outline: none;
-    }
-
-    /* TABLE */
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    th {
-      text-align: left;
-      font-size: 11px;
-      text-transform: uppercase;
-      color: var(--muted);
-      background: var(--surface-2);
-      padding: 12px;
-    }
-
-    td {
-      padding: 12px;
-      border-top: 1px solid var(--border);
-      font-size: 13px;
-    }
-
-    .badge {
-      font-size: 11px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: var(--surface-2);
-      color: var(--muted);
-    }
-
-    .badge.online { color: #2ee59d; }
-    .badge.offline { color: #ff5b5b; }
-    .badge.maintenance { color: #ffb020; }
-    .badge.dev { color: #7c7cff; }
-
-    /* MODAL */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      justify-content: center;
-      align-items: center;
-    }
-
-    .modal-overlay.show { display: flex; }
-
-    .modal {
-      width: 600px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 22px;
-    }
-
-    .modal h2 {
-      font-size: 16px;
-      margin-bottom: 16px;
-    }
-
-    .grid {
-      display: grid;
-      gap: 10px;
+      margin: 0;
     }
   </style>
 </head>
+
+<body>
+
+  <div class="sidebar">
+    <h2>⚡ Saturn Panel</h2>
+    <button onclick="loadPage('home')">Home</button>
+    <button onclick="loadPage('scripts')">Scripts</button>
+    <button onclick="loadPage('keys')">Keys</button>
+  </div>
+
+  <div class="main" id="content">
+    <div class="card">
+      <h1>🔥 Dashboard funcionando</h1>
+      <p>Seu painel carregou corretamente.</p>
+    </div>
+  </div>
+
+  <script>
+    function loadPage(page) {
+      const content = document.getElementById('content');
+
+      if (page === 'home') {
+        content.innerHTML = `
+          <div class="card">
+            <h1>Home</h1>
+            <p>Bem-vindo ao painel Saturn.</p>
+          </div>
+        `;
+      }
+
+      if (page === 'scripts') {
+        content.innerHTML = `
+          <div class="card">
+            <h1>Scripts</h1>
+            <p>Aqui você vai listar scripts via API depois.</p>
+          </div>
+        `;
+      }
+
+      if (page === 'keys') {
+        content.innerHTML = `
+          <div class="card">
+            <h1>Keys</h1>
+            <p>Aqui você vai listar keys via API depois.</p>
+          </div>
+        `;
+      }
+    }
+  </script>
+
+</body>
+</html>
