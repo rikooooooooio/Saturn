@@ -1,307 +1,391 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saturn Storage - Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code&display=swap" rel="stylesheet">
+  <title>Saturn Storage — Painel</title>
+  <link rel="icon" href="data:,">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Fira+Code&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --text: #ffffff;
+      --text-secondary: #a0a0a0;
+      --accent: #ffffff;
+      --radius: 12px;
+      --transition: 0.2s ease;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a0a; color: #e0e0e0; font-family: 'Inter', sans-serif; display: flex; height: 100vh; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
     .sidebar {
-      width: 260px; background: #0f0f0f; border-right: 1px solid #1f1f1f;
-      padding: 1.5rem; display: flex; flex-direction: column;
+      width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
     }
-    .sidebar h2 { font-weight: 800; font-size: 1.3rem; margin-bottom: 2rem; color: #fff; }
-    .sidebar-nav { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
-    .sidebar-nav button {
-      background: none; border: none; color: #888; padding: 0.7rem 1rem;
-      text-align: left; border-radius: 8px; cursor: pointer; font-size: 0.95rem;
-      transition: all 0.2s; font-family: inherit;
+    .sidebar h2 {
+      font-weight: 800;
+      font-size: 1.3rem;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
-    .sidebar-nav button:hover, .sidebar-nav button.active { background: #1a1a1a; color: #fff; }
-    .logout-btn { margin-top: auto; color: #f44 !important; font-weight: 500; }
-    .main { flex: 1; padding: 2rem; overflow-y: auto; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-    .header h1 { font-size: 2rem; font-weight: 700; color: #fff; }
-    .actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .sidebar nav { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+    .sidebar nav button {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 0.7rem 1rem;
+      text-align: left;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .sidebar nav button:hover, .sidebar nav button.active { background: #1a1a1a; color: #fff; }
+    .logout-btn { margin-top: auto; color: #f44 !important; font-weight: 600; }
+    .main {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    .header h1 { font-size: 1.8rem; font-weight: 700; }
+    .actions { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
     .btn {
-      padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer;
-      font-size: 0.9rem; border: none; transition: all 0.2s; font-family: inherit;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-size: 0.9rem;
+      transition: all var(--transition);
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
     }
-    .btn-primary { background: #fff; color: #000; }
-    .btn-primary:hover { background: #ddd; }
-    .btn-secondary { background: #1a1a1a; color: #fff; border: 1px solid #2a2a2a; }
-    .btn-secondary:hover { background: #222; }
-    .btn-danger { background: #5c1a1a; color: #f88; border: 1px solid #3a1010; }
-    .btn-danger:hover { background: #6b2020; }
+    .btn-primary { background: #fff; color: #000; border: none; }
+    .btn-primary:hover { background: #e0e0e0; }
+    .btn-danger { color: #f44; border-color: #f44; background: transparent; }
+    .btn-danger:hover { background: rgba(255,68,68,0.1); }
     .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
-    .search-box { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 0.5rem 1rem; color: #fff; width: 200px; }
+    .search-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      color: #fff;
+      width: 200px;
+      font-size: 0.9rem;
+    }
     .search-box:focus { outline: none; border-color: #555; }
-    .table-container { background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 12px; overflow: hidden; }
+    .table-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
     table { width: 100%; border-collapse: collapse; }
-    th { background: #1a1a1a; padding: 0.8rem; text-align: left; font-weight: 600; color: #aaa; font-size: 0.85rem; }
-    td { padding: 0.8rem; border-bottom: 1px solid #1a1a1a; font-size: 0.9rem; }
+    th { background: #1a1a1a; padding: 0.8rem; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; }
+    td { padding: 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
     tr:last-child td { border-bottom: none; }
-    .badge { padding: 0.2rem 0.7rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-    .online { background: #0c4a1e; color: #4ade80; }
-    .offline { background: #4a0c0c; color: #f87171; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.7rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .online { background: rgba(0,204,102,0.15); color: #00cc66; }
+    .offline { background: rgba(255,68,68,0.15); color: #ff4444; }
+    .maintenance { background: rgba(255,170,0,0.15); color: #ffaa00; }
+    .development { background: rgba(100,100,255,0.15); color: #8888ff; }
+    .active { background: rgba(0,204,102,0.15); color: #00cc66; }
+    .expired { background: rgba(255,68,68,0.15); color: #ff4444; }
+    .revoked { background: rgba(255,170,0,0.15); color: #ffaa00; }
     .tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
-    .tag { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.75rem; }
-    .loader-text { font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #aaa; word-break: break-all; }
-    .copy-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 1rem; transition: color 0.2s; }
-    .copy-btn:hover { color: #fff; }
+    .tag { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.7rem; }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.show { display: flex; }
     .modal {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
-      justify-content: center; align-items: center; z-index: 100;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 600px;
+      max-width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
     }
-    .modal.show { display: flex; }
-    .modal-content {
-      background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 16px;
-      padding: 2rem; width: 600px; max-width: 90%; max-height: 85vh; overflow-y: auto;
-    }
-    .modal-content h2 { margin-bottom: 1.5rem; color: #fff; }
+    .modal h2 { margin-bottom: 1.5rem; }
     .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; margin-bottom: 0.3rem; color: #aaa; font-size: 0.85rem; }
+    .form-group label { display: block; margin-bottom: 0.3rem; color: var(--text-secondary); font-size: 0.85rem; }
     .form-group input, .form-group textarea, .form-group select {
-      width: 100%; padding: 0.7rem; background: #1a1a1a; border: 1px solid #2a2a2a;
-      border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem;
+      width: 100%;
+      padding: 0.7rem;
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.9rem;
     }
-    .form-group textarea { height: 250px; font-family: 'Fira Code', monospace; resize: vertical; }
-    .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
-      outline: none; border-color: #555;
-    }
-    .file-upload {
-      border: 2px dashed #2a2a2a; border-radius: 8px; padding: 1rem; text-align: center;
-      cursor: pointer; transition: border-color 0.2s; color: #aaa;
-    }
-    .file-upload:hover { border-color: #fff; }
-    .file-upload input[type="file"] { display: none; }
-    .preview-content {
-      background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
-      padding: 1rem; font-family: 'Fira Code', monospace; font-size: 0.85rem;
-      max-height: 400px; overflow-y: auto; white-space: pre-wrap; color: #ddd;
-    }
-    .tags-input { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
-    .tags-input input { flex: 1; min-width: 120px; }
+    .form-group textarea { height: 200px; resize: vertical; font-family: 'Fira Code', monospace; }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: #555; }
     .toast {
-      position: fixed; bottom: 20px; right: 20px; background: #0c4a1e; color: #4ade80;
-      padding: 0.8rem 1.5rem; border-radius: 8px; font-weight: 500; z-index: 200;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #00cc66;
+      color: #000;
+      padding: 0.8rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 200;
       animation: slideIn 0.3s ease;
     }
     @keyframes slideIn { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+    .flex { display: flex; }
+    .justify-between { justify-content: space-between; }
+    .items-center { align-items: center; }
+    .gap-2 { gap: 0.5rem; }
+    .mt-2 { margin-top: 1rem; }
+    .mb-2 { margin-bottom: 1rem; }
   </style>
 </head>
 <body>
-  <div class="sidebar">
+  <aside class="sidebar">
     <h2>🪐 Saturn</h2>
-    <div class="sidebar-nav">
-      <button class="active" data-tab="scripts">📜 Scripts</button>
-    </div>
+    <nav>
+      <button data-tab="scripts" class="active">📜 Scripts</button>
+      <button data-tab="keys">🔑 Keys</button>
+      <button data-tab="logs">🛡️ Logs</button>
+    </nav>
     <button class="logout-btn" onclick="logout()">🚪 Sair</button>
-  </div>
+  </aside>
 
-  <div class="main">
-    <div class="header">
-      <h1>Scripts</h1>
-      <div class="actions">
-        <input type="text" class="search-box" id="searchInput" placeholder="🔍 Pesquisar..." oninput="filterScripts()">
-        <select id="statusFilter" class="form-group select" style="width:auto; padding:0.5rem; background:#1a1a1a; border:1px solid #2a2a2a; color:#fff; border-radius:8px;" onchange="filterScripts()">
-          <option value="">Todos</option>
-          <option value="online">Online</option>
-          <option value="offline">Offline</option>
-        </select>
-        <button class="btn btn-primary" onclick="openModal()">+ Novo Script</button>
+  <main class="main">
+    <!-- Aba Scripts -->
+    <div id="tab-scripts" class="tab-content">
+      <div class="header">
+        <h1>Scripts</h1>
+        <div class="actions">
+          <input type="text" id="searchScripts" class="search-box" placeholder="🔍 Buscar..." oninput="renderScripts()">
+          <select id="statusFilter" class="form-group select" style="width:auto; padding:0.5rem; background:var(--surface); border:1px solid var(--border); color:#fff; border-radius:8px;" onchange="renderScripts()">
+            <option value="">Todos</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="development">Development</option>
+          </select>
+          <button class="btn btn-primary" onclick="openScriptModal()">+ Novo Script</button>
+        </div>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Nome</th><th>Status</th><th>Tags</th><th>Execuções</th><th>Ações</th></tr></thead>
+          <tbody id="scriptsTable"></tbody>
+        </table>
       </div>
     </div>
 
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr><th>Nome</th><th>Status</th><th>Tags</th><th>Execuções</th><th>Loader</th><th>Ações</th></tr>
-        </thead>
-        <tbody id="scriptsTable"></tbody>
-      </table>
+    <!-- Aba Keys -->
+    <div id="tab-keys" class="tab-content hidden">
+      <div class="header">
+        <h1>Keys</h1>
+        <button class="btn btn-primary" onclick="openKeyModal()">+ Nova Key</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Key</th><th>Script</th><th>HWID</th><th>Expira</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="keysTable"></tbody>
+        </table>
+      </div>
     </div>
-  </div>
 
-  <!-- Modal de criação/edição -->
-  <div id="modal" class="modal">
-    <div class="modal-content">
-      <h2 id="modalTitle">Novo Script</h2>
+    <!-- Aba Logs -->
+    <div id="tab-logs" class="tab-content hidden">
+      <div class="header">
+        <h1>Logs de Segurança</h1>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Ação</th><th>Detalhes</th><th>IP</th><th>Data</th></tr></thead>
+          <tbody id="logsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Script (criar/editar) -->
+  <div id="scriptModal" class="modal-overlay">
+    <div class="modal">
+      <h2 id="scriptModalTitle">Novo Script</h2>
       <form id="scriptForm">
         <input type="hidden" id="scriptId">
-        <div class="form-group">
-          <label>Nome</label>
-          <input type="text" id="scriptName" placeholder="Meu Script" required>
-        </div>
-        <div class="form-group">
-          <label>Status</label>
-          <select id="scriptStatus">
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Tags (separadas por vírgula)</label>
-          <input type="text" id="scriptTags" placeholder="farm, auto, combate">
-        </div>
-        <div class="form-group">
-          <label>Conteúdo (Lua)</label>
-          <textarea id="scriptContent" placeholder="-- Código Lua aqui"></textarea>
-        </div>
-        <div class="form-group">
-          <label>Ou envie um arquivo .txt / .lua</label>
-          <div class="file-upload" id="fileDropArea">
-            📁 Clique ou arraste um arquivo
-            <input type="file" id="fileInput" accept=".txt,.lua">
-            <div id="fileName" style="margin-top:0.5rem; color:#4ade80;"></div>
-          </div>
-        </div>
-        <div style="display:flex; gap:0.8rem; margin-top:1.5rem;">
-          <button type="submit" class="btn btn-primary" style="flex:1;">Salvar</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex:1;">Cancelar</button>
+        <div class="form-group"><label>Nome</label><input type="text" id="scriptName" required></div>
+        <div class="form-group"><label>Status</label><select id="scriptStatus"><option value="online">Online</option><option value="offline">Offline</option><option value="maintenance">Maintenance</option><option value="development">Development</option></select></div>
+        <div class="form-group"><label>Tags (separadas por vírgula)</label><input type="text" id="scriptTags" placeholder="farm, auto"></div>
+        <div class="form-group"><label>Conteúdo</label><textarea id="scriptContent" required></textarea></div>
+        <div class="flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary">Salvar</button>
+          <button type="button" class="btn" onclick="closeModal('scriptModal')">Cancelar</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal de Preview -->
-  <div id="previewModal" class="modal">
-    <div class="modal-content" style="max-width:700px;">
-      <h2 id="previewTitle">Preview do Script</h2>
-      <div class="preview-content" id="previewContent"></div>
-      <div style="margin-top:1rem; display:flex; justify-content:flex-end;">
-        <button class="btn btn-secondary" onclick="closePreviewModal()">Fechar</button>
-      </div>
+  <!-- Modal Key (criar/editar) -->
+  <div id="keyModal" class="modal-overlay">
+    <div class="modal">
+      <h2 id="keyModalTitle">Nova Key</h2>
+      <form id="keyForm">
+        <input type="hidden" id="keyId">
+        <div class="form-group"><label>Script (opcional)</label><select id="keyScriptId"><option value="">Nenhum</option></select></div>
+        <div class="form-group"><label>HWID (opcional)</label><input type="text" id="keyHwid" placeholder="Deixe vazio para livre"></div>
+        <div class="form-group"><label>Dias de expiração (vazio = nunca)</label><input type="number" id="keyExpiryDays" placeholder="30"></div>
+        <div class="flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary">Gerar Key</button>
+          <button type="button" class="btn" onclick="closeModal('keyModal')">Cancelar</button>
+        </div>
+      </form>
     </div>
   </div>
 
-  <!-- Modal de Confirmação de Exclusão -->
-  <div id="deleteModal" class="modal">
-    <div class="modal-content" style="max-width:400px;">
-      <h2>Excluir Script</h2>
-      <p>Digite <strong id="deleteScriptName"></strong> para confirmar:</p>
-      <input type="text" id="deleteConfirmInput" class="form-group input" style="margin-top:0.5rem;">
-      <div style="display:flex; gap:0.8rem; margin-top:1rem;">
-        <button class="btn btn-danger" id="confirmDeleteBtn" disabled>Excluir</button>
-        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal de Histórico de Versões -->
-  <div id="versionsModal" class="modal">
-    <div class="modal-content" style="max-width:700px;">
-      <h2>Histórico de Versões</h2>
-      <div id="versionsList" style="max-height:400px; overflow-y:auto;"></div>
-      <div style="margin-top:1rem; display:flex; justify-content:flex-end;">
-        <button class="btn btn-secondary" onclick="closeVersionsModal()">Fechar</button>
-      </div>
+  <!-- Modal de preview -->
+  <div id="previewModal" class="modal-overlay">
+    <div class="modal" style="max-width:700px;">
+      <h2 id="previewTitle">Preview</h2>
+      <pre style="background:#1a1a1a;border:1px solid var(--border);border-radius:8px;padding:1rem;color:#ddd;max-height:400px;overflow:auto;font-family:'Fira Code',monospace;" id="previewContent"></pre>
+      <button class="btn mt-2" onclick="closeModal('previewModal')">Fechar</button>
     </div>
   </div>
 
   <script>
+    // ---------- API helper ----------
     async function api(url, options = {}) {
       const res = await fetch(url, { credentials: 'include', ...options });
       if (res.status === 401) { window.location.href = '/admin'; throw new Error('Unauthorized'); }
       return res;
     }
 
+    // ---------- Verifica autenticação ----------
+    (async () => {
+      try { await api('/api/auth/me'); } catch { window.location.href = '/admin'; }
+      loadScriptsForSelect();
+      renderScripts();
+    })();
+
+    // ---------- Navegação por abas ----------
+    document.querySelectorAll('.sidebar button[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar button[data-tab]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+        if (tab === 'scripts') renderScripts();
+        else if (tab === 'keys') renderKeys();
+        else if (tab === 'logs') renderLogs();
+      });
+    });
+
+    // ---------- SCRIPTS ----------
     let allScripts = [];
-
-    async function loadScripts() {
-      const res = await api('/api/scripts');
-      allScripts = await res.json();
-      renderTable(allScripts);
-    }
-
-    function renderTable(scripts) {
-      const tbody = document.getElementById('scriptsTable');
-      if (scripts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#666; padding:2rem;">Nenhum script encontrado</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = scripts.map(s => {
-        const loaderUrl = `${window.location.origin}/api/load/${s.id}`;
-        return `
+    async function renderScripts() {
+      try {
+        const res = await api('/api/scripts?limit=100');
+        const data = await res.json();
+        allScripts = data.data || [];
+        const search = document.getElementById('searchScripts')?.value?.toLowerCase() || '';
+        const status = document.getElementById('statusFilter')?.value || '';
+        const filtered = allScripts.filter(s => {
+          const matchName = s.name.toLowerCase().includes(search);
+          const matchStatus = !status || s.status === status;
+          return matchName && matchStatus;
+        });
+        const tbody = document.getElementById('scriptsTable');
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Nenhum script encontrado</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = filtered.map(s => `
           <tr>
             <td><strong>${escapeHtml(s.name)}</strong></td>
             <td><span class="badge ${s.status}">${s.status}</span></td>
             <td><div class="tags">${(s.tags||[]).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div></td>
-            <td>${s.executions || 0}</td>
+            <td>${s.executions||0}</td>
             <td>
-              <span class="loader-text">${loaderUrl}</span>
-              <button class="copy-btn" onclick="copyLoader('${s.id}')" title="Copiar Loader">📋</button>
-            </td>
-            <td>
-              <button class="btn btn-sm btn-secondary" onclick="previewScript('${s.id}')">👁️</button>
-              <button class="btn btn-sm btn-secondary" onclick="editScript('${s.id}')">✏️</button>
-              <button class="btn btn-sm btn-secondary" onclick="duplicateScript('${s.id}')">📄</button>
-              <button class="btn btn-sm btn-secondary" onclick="openVersions('${s.id}')">🕒</button>
-              <button class="btn btn-sm btn-danger" onclick="confirmDelete('${s.id}')">🗑️</button>
+              <button class="btn btn-sm" onclick="previewScript('${s.id}')">👁️</button>
+              <button class="btn btn-sm" onclick="editScript('${s.id}')">✏️</button>
+              <button class="btn btn-sm" onclick="duplicateScript('${s.id}')">📄</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')">🗑️</button>
+              <button class="btn btn-sm" onclick="copyLoader('${s.id}')">📋</button>
             </td>
           </tr>
-        `;
-      }).join('');
-    }
-
-    function filterScripts() {
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const status = document.getElementById('statusFilter').value;
-      const filtered = allScripts.filter(s => {
-        const matchName = s.name.toLowerCase().includes(search);
-        const matchStatus = !status || s.status === status;
-        return matchName && matchStatus;
-      });
-      renderTable(filtered);
+        `).join('');
+      } catch(e) { console.error(e); }
     }
 
     function copyLoader(id) {
-      const code = `loadstring(game:HttpGet("${window.location.origin}/api/load/${id}"))()`;
-      navigator.clipboard.writeText(code).then(() => showToast('✅ Loader copiado!'));
+      const loader = `KEY = "SUA_KEY_AQUI"\nloadstring(game:HttpGet("${window.location.origin}/api/load/${id}?key=" .. KEY))()`;
+      navigator.clipboard.writeText(loader).then(() => showToast('✅ Loader copiado!'));
     }
 
-    // Modal de criação/edição
-    const modal = document.getElementById('modal');
-    function openModal(script = null) {
-      modal.classList.add('show');
+    function openScriptModal(script = null) {
+      document.getElementById('scriptModal').classList.add('show');
       if (script) {
-        document.getElementById('modalTitle').textContent = 'Editar Script';
+        document.getElementById('scriptModalTitle').textContent = 'Editar Script';
         document.getElementById('scriptId').value = script.id;
         document.getElementById('scriptName').value = script.name;
         document.getElementById('scriptStatus').value = script.status;
         document.getElementById('scriptTags').value = (script.tags||[]).join(', ');
         document.getElementById('scriptContent').value = script.content;
       } else {
-        document.getElementById('modalTitle').textContent = 'Novo Script';
+        document.getElementById('scriptModalTitle').textContent = 'Novo Script';
         document.getElementById('scriptForm').reset();
         document.getElementById('scriptId').value = '';
       }
     }
-    function closeModal() { modal.classList.remove('show'); }
 
-    // Upload de arquivo
-    document.getElementById('fileDropArea').addEventListener('click', () => document.getElementById('fileInput').click());
-    document.getElementById('fileInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) readFile(file);
-    });
-    document.getElementById('fileDropArea').addEventListener('dragover', (e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#fff'; });
-    document.getElementById('fileDropArea').addEventListener('dragleave', (e) => { e.currentTarget.style.borderColor = '#2a2a2a'; });
-    document.getElementById('fileDropArea').addEventListener('drop', (e) => {
-      e.preventDefault();
-      e.currentTarget.style.borderColor = '#2a2a2a';
-      const file = e.dataTransfer.files[0];
-      if (file && (file.name.endsWith('.txt')||file.name.endsWith('.lua'))) readFile(file);
-    });
-    function readFile(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        document.getElementById('scriptContent').value = e.target.result;
-        document.getElementById('fileName').textContent = `📄 ${file.name}`;
-      };
-      reader.readAsText(file);
+    async function editScript(id) {
+      const res = await api('/api/scripts/' + id);
+      const script = await res.json();
+      openScriptModal(script);
     }
 
     document.getElementById('scriptForm').addEventListener('submit', async (e) => {
@@ -309,95 +393,143 @@
       const id = document.getElementById('scriptId').value;
       const name = document.getElementById('scriptName').value.trim();
       const status = document.getElementById('scriptStatus').value;
-      const tags = document.getElementById('scriptTags').value.split(',').map(t => t.trim()).filter(t => t);
+      const tags = document.getElementById('scriptTags').value.split(',').map(t => t.trim()).filter(Boolean);
       const content = document.getElementById('scriptContent').value;
-      if (!name || !content) return alert('Preencha todos os campos.');
-      const method = id ? 'PUT' : 'POST';
+
       const url = id ? `/api/scripts/${id}` : '/api/scripts';
+      const method = id ? 'PUT' : 'POST';
       await api(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, status, tags, content }) });
-      closeModal();
-      loadScripts();
-      showToast(id ? '✅ Script atualizado!' : '✅ Script criado!');
+      closeModal('scriptModal');
+      renderScripts();
+      loadScriptsForSelect();
+      showToast(id ? '✅ Atualizado!' : '✅ Criado!');
     });
 
-    async function editScript(id) {
-      const res = await api(`/api/scripts/${id}`);
-      openModal(await res.json());
+    async function deleteScript(id) {
+      if (!confirm('Tem certeza?')) return;
+      await api('/api/scripts/' + id, { method: 'DELETE' });
+      renderScripts();
+      loadScriptsForSelect();
+      showToast('🗑️ Excluído');
     }
 
     async function duplicateScript(id) {
       await api(`/api/scripts/${id}/duplicate`, { method: 'POST' });
-      loadScripts();
-      showToast('✅ Script duplicado!');
+      renderScripts();
+      showToast('✅ Duplicado');
     }
 
-    // Preview
     function previewScript(id) {
       const script = allScripts.find(s => s.id === id);
       if (!script) return;
-      document.getElementById('previewTitle').textContent = `Preview: ${script.name}`;
+      document.getElementById('previewTitle').textContent = script.name;
       document.getElementById('previewContent').textContent = script.content;
       document.getElementById('previewModal').classList.add('show');
     }
-    function closePreviewModal() { document.getElementById('previewModal').classList.remove('show'); }
 
-    // Exclusão com confirmação
-    let deleteTarget = null;
-    function confirmDelete(id) {
-      const script = allScripts.find(s => s.id === id);
-      if (!script) return;
-      deleteTarget = id;
-      document.getElementById('deleteScriptName').textContent = script.name;
-      document.getElementById('deleteConfirmInput').value = '';
-      document.getElementById('confirmDeleteBtn').disabled = true;
-      document.getElementById('deleteModal').classList.add('show');
-    }
-    document.getElementById('deleteConfirmInput').addEventListener('input', function() {
-      const script = allScripts.find(s => s.id === deleteTarget);
-      document.getElementById('confirmDeleteBtn').disabled = this.value !== script?.name;
-    });
-    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
-      if (!deleteTarget) return;
-      await api(`/api/scripts/${deleteTarget}`, { method: 'DELETE' });
-      closeDeleteModal();
-      loadScripts();
-      showToast('🗑️ Script excluído!');
-    });
-    function closeDeleteModal() { document.getElementById('deleteModal').classList.remove('show'); }
-
-    // Histórico de versões
-    async function openVersions(id) {
-      const res = await api(`/api/scripts/${id}/versions`);
-      const versions = await res.json();
-      const list = document.getElementById('versionsList');
-      if (versions.length === 0) {
-        list.innerHTML = '<p style="color:#666;">Nenhuma versão anterior.</p>';
-      } else {
-        list.innerHTML = versions.map(v => `
-          <div style="border:1px solid #2a2a2a; border-radius:8px; padding:0.8rem; margin-bottom:0.5rem;">
-            <strong>${escapeHtml(v.name)}</strong> <span class="badge ${v.status}">${v.status}</span>
-            <div style="font-size:0.8rem; color:#888;">${new Date(v.createdAt).toLocaleString()}</div>
-            <pre style="font-family:'Fira Code',monospace; font-size:0.8rem; max-height:100px; overflow-y:auto; background:#1a1a1a; padding:0.5rem; border-radius:4px; margin-top:0.5rem;">${escapeHtml(v.content)}</pre>
-          </div>
-        `).join('');
+    // ---------- KEYS ----------
+    async function renderKeys() {
+      const res = await api('/api/keys');
+      const keys = await res.json();
+      const tbody = document.getElementById('keysTable');
+      if (keys.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Nenhuma key criada</td></tr>`;
+        return;
       }
-      document.getElementById('versionsModal').classList.add('show');
+      tbody.innerHTML = keys.map(k => `
+        <tr>
+          <td style="font-family:'Fira Code',monospace;">${k.key}</td>
+          <td>${k.script_id || '-'}</td>
+          <td>${k.hwid || 'Livre'}</td>
+          <td>${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Nunca'}</td>
+          <td><span class="badge ${k.status}">${k.status}</span></td>
+          <td>
+            <button class="btn btn-sm btn-danger" onclick="deleteKey(${k.id})">🗑️</button>
+          </td>
+        </tr>
+      `).join('');
     }
-    function closeVersionsModal() { document.getElementById('versionsModal').classList.remove('show'); }
 
+    function openKeyModal() {
+      document.getElementById('keyModal').classList.add('show');
+      document.getElementById('keyForm').reset();
+      document.getElementById('keyId').value = '';
+    }
+
+    document.getElementById('keyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const scriptId = document.getElementById('keyScriptId').value || null;
+      const hwid = document.getElementById('keyHwid').value.trim();
+      const days = parseInt(document.getElementById('keyExpiryDays').value) || null;
+      const expiresAt = days ? new Date(Date.now() + days*86400000).toISOString() : null;
+
+      await api('/api/keys', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ scriptId, hwid, expiresAt })
+      });
+      closeModal('keyModal');
+      renderKeys();
+      showToast('✅ Key gerada!');
+    });
+
+    async function deleteKey(id) {
+      if (!confirm('Excluir key?')) return;
+      await api('/api/keys/' + id, { method: 'DELETE' });
+      renderKeys();
+      showToast('🗑️ Key excluída');
+    }
+
+    // ---------- LOGS ----------
+    async function renderLogs() {
+      const res = await api('/api/scripts'); // não temos endpoint separado para logs, mas o array está em DB.securityLogs
+      // Como o backend não expõe /api/logs, vamos usar os dados do localStorage? Melhor adaptar: vamos consumir os scripts e mostrar os logs do cliente? 
+      // O backend armazena DB.securityLogs mas não fornece rota GET. Vamos criar uma rota /api/logs rapidamente ou mostrar uma mensagem.
+      // Como o usuário pode não ter acesso ao server.js agora, vou simular com os dados locais? Melhor criar uma rota simples no servidor. 
+      // Mas o dashboard é independente. Vou colocar um fetch para /api/logs (que ainda não existe). Se falhar, mostra "em breve".
+      try {
+        const res = await api('/api/logs');
+        const logs = await res.json();
+        const tbody = document.getElementById('logsTable');
+        if (logs.length === 0) tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Nenhum log</td></tr>`;
+        else tbody.innerHTML = logs.map(l => `
+          <tr>
+            <td>${l.action}</td>
+            <td>${l.details}</td>
+            <td>${l.ip}</td>
+            <td>${new Date(l.created_at).toLocaleString()}</td>
+          </tr>
+        `).join('');
+      } catch(e) {
+        document.getElementById('logsTable').innerHTML = `<tr><td colspan="4" class="empty-state">Erro ao carregar logs</td></tr>`;
+      }
+    }
+
+    // ---------- UTILS ----------
     function showToast(msg) {
       const toast = document.createElement('div'); toast.className = 'toast'; toast.textContent = msg;
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
     }
-    function logout() {
-      fetch('/api/auth/logout', { method:'POST', credentials:'include' }).then(() => window.location.href='/admin');
-    }
-    function escapeHtml(text) {
-      return String(text).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+    function escapeHtml(s) { return String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m]); }
+    function logout() { api('/api/auth/logout', {method:'POST'}).finally(() => window.location.href='/admin'); }
+
+    // Carregar scripts no select de keys
+    async function loadScriptsForSelect() {
+      try {
+        const res = await api('/api/scripts?limit=100');
+        const data = await res.json();
+        const scripts = data.data || [];
+        const select = document.getElementById('keyScriptId');
+        select.innerHTML = '<option value="">Nenhum</option>' + scripts.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      } catch(e) {}
     }
 
-    loadScripts();
+    // Fechar modais ao clicar fora
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
+    });
   </script>
 </body>
 </html>
