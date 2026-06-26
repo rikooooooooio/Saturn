@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-  <!-- CodeMirror -->
+  <!-- CodeMirror CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
   <style>
@@ -208,16 +208,6 @@
       font-size: 0.9rem;
     }
     tr:last-child td { border-bottom: none; }
-    .status-badge {
-      display: inline-block;
-      padding: 0.2rem 0.6rem;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .status-online { background: rgba(16,185,129,0.15); color: var(--success); }
-    .status-offline { background: rgba(239,68,68,0.15); color: var(--danger); }
     .loader-cell {
       font-family: 'Fira Code', monospace;
       font-size: 0.8rem;
@@ -409,7 +399,7 @@
   </main>
 
   <!-- MODAIS -->
-  <!-- Modal Script (criação/edição) -->
+  <!-- Modal Script -->
   <div id="scriptModal" class="modal">
     <div class="modal-box">
       <h2 id="modalTitle">Novo Script</h2>
@@ -452,7 +442,7 @@
 
   <div class="toast-container" id="toastContainer"></div>
 
-  <!-- Scripts JS -->
+  <!-- CodeMirror JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/lua/lua.min.js"></script>
   <script>
@@ -499,7 +489,7 @@
       document.getElementById('statsCards').innerHTML = `
         <div class="stat-card"><div class="stat-label">Total Scripts</div><div class="stat-value">${stats.totalScripts}</div></div>
         <div class="stat-card"><div class="stat-label">Online</div><div class="stat-value" style="color:var(--success)">${stats.onlineScripts}</div></div>
-        <div class="stat-card"><div class="stat-label">Execuções Hoje</div><div class="stat-value">${stats.executionsToday||0}</div></div>
+        <div class="stat-card"><div class="stat-label">Offline</div><div class="stat-value" style="color:var(--danger)">${stats.offlineScripts||0}</div></div>
         <div class="stat-card"><div class="stat-label">Total Execuções</div><div class="stat-value">${stats.totalExecutions}</div></div>
       `;
     }
@@ -528,7 +518,9 @@
             <button class="btn btn-sm" onclick="copyShort('${s.short_id}')" title="Link Curto">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </button>
-            <button class="btn btn-sm" onclick="openChangelog('${s.id}')" title="Enviar Changelog">📢</button>
+            <button class="btn btn-sm" onclick="openChangelog('${s.id}')" title="Enviar Changelog">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
             <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')" title="Excluir">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
@@ -537,8 +529,14 @@
       `).join('');
     }
 
-    function copyLoader(id) { navigator.clipboard.writeText(`${location.origin}/api/load/${id}`); showToast('Loader copiado!'); }
-    function copyShort(sid) { navigator.clipboard.writeText(`${location.origin}/s/${sid}`); showToast('Link curto copiado!'); }
+    function copyLoader(id) {
+      navigator.clipboard.writeText(`loadstring(game:HttpGet("${location.origin}/api/load/${id}"))()`);
+      showToast('Loader copiado!');
+    }
+    function copyShort(sid) {
+      navigator.clipboard.writeText(`${location.origin}/s/${sid}`);
+      showToast('Link curto copiado!');
+    }
 
     // -- EDITOR --
     let editor;
@@ -576,9 +574,8 @@
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
     async function editScript(id) {
-      const scripts = await api('/api/scripts');
-      const s = scripts.find(s=>s.id===id);
-      if (s) openScriptModal(s);
+      const script = await api('/api/scripts/' + id);
+      if (script) openScriptModal(script);
     }
 
     async function deleteScript(id) {
@@ -658,12 +655,13 @@
       for (const file of files) {
         if (!file.name.endsWith('.txt')) continue;
         const content = await file.text();
+        if (!content.trim()) continue;
         scriptsToCreate.push({ name: file.name.replace(/\.txt$/i, ''), content });
       }
-      if (!scriptsToCreate.length) return showToast('Nenhum arquivo .txt válido.', 'error');
+      if (!scriptsToCreate.length) return showToast('Nenhum arquivo .txt com conteúdo.', 'error');
       await api('/api/scripts/bulk', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({scripts:scriptsToCreate})});
       loadScripts();
-      showToast(`${scriptsToCreate.length} script(s) importados!`);
+      showToast(`${scriptsToCreate.length} script(s) criado(s)!`);
       event.target.value = '';
     }
 
