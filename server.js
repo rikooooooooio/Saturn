@@ -32,9 +32,7 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_SECRET = process.env.COOKIE_SECRET;
 const ADMIN_ROUTE_SECRET = process.env.ADMIN_ROUTE_SECRET;
-
-// 🔧 ROTA FIXA para o painel (não ofuscada, fácil acesso)
-const DYNAMIC_ADMIN_PATH = '/painel';
+const DYNAMIC_ADMIN_PATH = '/painel';   // rota fixa
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
@@ -86,7 +84,7 @@ app.use(helmet({
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cookieParser(COOKIE_SECRET));
+app.use(cookieParser());   // sem COOKIE_SECRET para assinatura
 
 /* ============================================================
    CORS PARA API PÚBLICA
@@ -249,10 +247,10 @@ async function discordEmbed({ title, description, banner, thumbnail, scriptName 
 }
 
 async function auth(req, res, next) {
-  const t = req.signedCookies?.token; 
+  const t = req.cookies?.token;       // cookie normal, sem assinatura
   if (!t) return res.status(401).json({ error: 'Token ausente' });
   if (isBlacklisted(t)) { 
-    res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true }); 
+    res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
     return res.status(401).json({ error: 'Token inválido' }); 
   }
   try { 
@@ -260,13 +258,13 @@ async function auth(req, res, next) {
     const admin = DB.admins.find(a => a.id === decoded.id);
     if (!admin) return res.status(401).json({ error: 'Administrador inválido.' });
     if (admin.passwordChangedAt && (decoded.iat * 1000) < admin.passwordChangedAt) {
-      res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true });
+      res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' });
       return res.status(401).json({ error: 'Sessão revogada. Uma nova senha foi configurada.' });
     }
     req.user = decoded; 
     next(); 
   } catch { 
-    res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true }); 
+    res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
     res.status(401).json({ error: 'Sessão expirada' }); 
   }
 }
@@ -291,7 +289,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/ping', (req, res) => res.json({ pong: true, time: Date.now() }));
 
 /* ============================================================
-   AUTENTICAÇÃO (COOKIES COM LAX)
+   AUTENTICAÇÃO (COOKIES NORMAIS)
    ============================================================ */
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
@@ -309,7 +307,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
   admin.failedAttempts = 0; admin.lockUntil = null; deferredSave();
   if (admin.twofa_enabled) return res.json({ require2FA: true, tempToken: jwt.sign({ id: admin.id, username, require2FA: true }, JWT_SECRET, { expiresIn: '5m' }) });
   const token = jwt.sign({ id: admin.id, username, role: admin.role || 'admin' }, JWT_SECRET, { expiresIn: '8h' });
-  res.cookie('token', token, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true, maxAge: 8*3600*1000 });
+  res.cookie('token', token, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 8*3600*1000 });
   addLog(req, 'login', username);
   res.json({ success: true, redirectPath: `${DYNAMIC_ADMIN_PATH}/dashboard` });
 });
@@ -321,21 +319,21 @@ app.post('/api/auth/verify-2fa', twofaLimiter, (req, res) => {
   if (!admin?.twofa_secret) return res.status(400).json({ error: '2FA não configurado' });
   if (!speakeasy.totp.verify({ secret: admin.twofa_secret, encoding: 'base32', token: code, window: 1 })) return res.status(401).json({ error: 'Código inválido' });
   const token = jwt.sign({ id: admin.id, username: admin.username, role: admin.role || 'admin' }, JWT_SECRET, { expiresIn: '8h' });
-  res.cookie('token', token, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true, maxAge: 8*3600*1000 });
+  res.cookie('token', token, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 8*3600*1000 });
   res.json({ success: true, redirectPath: `${DYNAMIC_ADMIN_PATH}/dashboard` });
 });
 
 app.post('/api/auth/logout', (req, res) => { 
-  const t = req.signedCookies?.token; 
+  const t = req.cookies?.token; 
   if (t) blacklist(t); 
-  res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true }); 
+  res.clearCookie('token', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
   res.clearCookie('csrf_token', { secure: IS_PRODUCTION, sameSite: 'lax', path: '/' }); 
   res.json({ success: true, redirectPath: DYNAMIC_ADMIN_PATH }); 
 });
 
 app.get('/api/auth/me', auth, (req, res) => res.json({ username: req.user.username, role: req.user.role || 'admin', twofa_enabled: DB.admins.find(a => a.id === req.user.id)?.twofa_enabled || false }));
 
-// 2FA
+// 2FA (rotas mantidas iguais)
 app.get('/api/auth/2fa/setup', auth, twofaLimiter, (req, res) => {
   const a = DB.admins.find(a => a.id === req.user.id); if (!a) return res.status(404).json({ error: 'Admin não encontrado' });
   const sec = speakeasy.generateSecret({ name: `Astro:${a.username}` }); a.twofa_secret = sec.base32; a.twofa_enabled = false; deferredSave();
@@ -365,7 +363,7 @@ app.post('/api/auth/change-password', auth, async (req, res) => {
   if (!isMatch) return res.status(401).json({ error: 'Senha atual incorreta.' });
   admin.password_hash = await bcrypt.hash(newPassword, 10);
   admin.passwordChangedAt = Date.now();
-  const token = req.signedCookies?.token;
+  const token = req.cookies?.token;
   if (token) blacklist(token);
   addLog(req, 'change_password', req.user.username);
   saveDb();
@@ -373,7 +371,7 @@ app.post('/api/auth/change-password', auth, async (req, res) => {
 });
 
 /* ============================================================
-   SCRIPTS
+   SCRIPTS (CRUD completo mantido)
    ============================================================ */
 app.use('/api/scripts', apiLimiter);
 app.get('/api/scripts', auth, (req, res) => res.json(DB.scripts.map(s => ({ id: s.id, name: s.name, status: s.status, sandbox: s.sandbox||false, executions: s.executions||0, short_id: s.short_id, version: s.version||'1.0.0', created_at: s.created_at, updated_at: s.updated_at }))));
@@ -525,7 +523,7 @@ app.get('/api/load/:shortId/:token', loaderLimiter, (req, res) => {
   if (!s || s.status !== 'online') return res.status(404).send('Script indisponível.');
   if (!s.token || req.params.token !== s.token) return res.status(403).send('Token inválido.');
   if (s.sandbox) { 
-    const tok = req.signedCookies?.token; 
+    const tok = req.cookies?.token; 
     try { jwt.verify(tok, JWT_SECRET); } catch { return res.status(403).send('Acesso restrito.'); } 
   }
   const clientIp = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
