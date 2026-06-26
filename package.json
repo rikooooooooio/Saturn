@@ -1,9 +1,11 @@
 {
   "name": "saturn-storage",
   "version": "5.0.0",
+  "description": "Saturn Storage – Painel de scripts para Roblox",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "axios": "^1.7.0",
@@ -15,5 +17,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^9.0.0"
-  }
+  },
+  "keywords": ["roblox", "scripts", "loader", "saturn"],
+  "license": "MIT"
 }
