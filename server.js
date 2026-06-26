@@ -91,7 +91,7 @@ app.get('/api/reset-admin', (req, res) => {
 });
 
 // -------------------------------------------------------
-// SCRIPTS
+// SCRIPTS (CRUD completo)
 // -------------------------------------------------------
 app.get('/api/scripts', authMiddleware, (req, res) => {
   const scripts = DB.scripts.map(s => ({
@@ -186,133 +186,27 @@ app.get('/api/scripts/:id/versions', authMiddleware, (req, res) => {
 });
 
 // -------------------------------------------------------
-// KEYS
-// -------------------------------------------------------
-app.get('/api/keys', authMiddleware, (req, res) => {
-  const keys = DB.keys.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  return res.json(keys);
-});
-
-app.post('/api/keys', authMiddleware, (req, res) => {
-  const { scriptId, hwid, expiresAt } = req.body;
-  const key = 'SATURN-' + uuidv4().slice(0, 16).toUpperCase();
-  const newKey = {
-    id: Date.now(),
-    key,
-    script_id: scriptId || null,
-    hwid: hwid || '',
-    expires_at: expiresAt || null,
-    status: 'active',
-    created_at: new Date().toISOString()
-  };
-  DB.keys.push(newKey);
-  saveDb();
-  return res.status(201).json(newKey);
-});
-
-app.put('/api/keys/:id', authMiddleware, (req, res) => {
-  const key = DB.keys.find(k => k.id == req.params.id);
-  if (!key) return res.status(404).json({ error: 'Key não encontrada' });
-
-  const { hwid, expiresAt, status } = req.body;
-  if (hwid !== undefined) key.hwid = hwid;
-  if (expiresAt !== undefined) key.expires_at = expiresAt;
-  if (status !== undefined) key.status = status;
-  saveDb();
-  return res.json({ success: true });
-});
-
-app.delete('/api/keys/:id', authMiddleware, (req, res) => {
-  DB.keys = DB.keys.filter(k => k.id != req.params.id);
-  saveDb();
-  return res.json({ success: true });
-});
-
-// -------------------------------------------------------
-// LOADER (proteção por key + hwid)
+// LOADER PÚBLICO (apenas User-Agent check)
 // -------------------------------------------------------
 app.get('/api/load/:scriptId', (req, res) => {
-  const { key, hwid } = req.query;
-  if (!key) return res.status(403).sendFile(path.join(__dirname, 'public', 'blocked.html'));
-
-  const keyData = DB.keys.find(k => k.key === key);
-  if (!keyData || keyData.status !== 'active') {
-    DB.executionLogs.push({
-      id: Date.now(),
-      script_id: req.params.scriptId,
-      key_used: key,
-      hwid: hwid || '',
-      ip: req.ip,
-      success: false,
-      created_at: new Date().toISOString()
-    });
-    saveDb();
+  // Verifica User-Agent (bloqueia navegadores comuns)
+  const ua = (req.get('User-Agent') || '').toLowerCase();
+  if (!ua.includes('roblox')) {
     return res.status(403).sendFile(path.join(__dirname, 'public', 'blocked.html'));
-  }
-
-  if (keyData.expires_at && new Date(keyData.expires_at) < new Date()) {
-    keyData.status = 'expired';
-    saveDb();
-    DB.executionLogs.push({
-      id: Date.now(),
-      script_id: req.params.scriptId,
-      key_used: key,
-      hwid: hwid || '',
-      ip: req.ip,
-      success: false,
-      created_at: new Date().toISOString()
-    });
-    saveDb();
-    return res.status(403).sendFile(path.join(__dirname, 'public', 'blocked.html'));
-  }
-
-  if (keyData.hwid && hwid !== keyData.hwid) {
-    DB.executionLogs.push({
-      id: Date.now(),
-      script_id: req.params.scriptId,
-      key_used: key,
-      hwid: hwid || '',
-      ip: req.ip,
-      success: false,
-      created_at: new Date().toISOString()
-    });
-    saveDb();
-    return res.status(403).sendFile(path.join(__dirname, 'public', 'blocked.html'));
-  }
-
-  if (!keyData.hwid && hwid) {
-    keyData.hwid = hwid;
-    saveDb();
   }
 
   const script = DB.scripts.find(s => s.id === req.params.scriptId && s.status === 'online');
   if (!script) {
-    DB.executionLogs.push({
-      id: Date.now(),
-      script_id: req.params.scriptId,
-      key_used: key,
-      hwid: hwid || '',
-      ip: req.ip,
-      success: false,
-      created_at: new Date().toISOString()
-    });
-    saveDb();
     return res.status(404).sendFile(path.join(__dirname, 'public', 'blocked.html'));
   }
 
+  // Incrementa contador de execuções
   script.executions = (script.executions || 0) + 1;
-  DB.executionLogs.push({
-    id: Date.now(),
-    script_id: script.id,
-    key_used: key,
-    hwid: hwid || '',
-    ip: req.ip,
-    success: true,
-    created_at: new Date().toISOString()
-  });
   saveDb();
 
-  return res.type('text/plain').send(script.content);
+  // Retorna o conteúdo do script
+  res.type('text/plain');
+  return res.send(script.content);
 });
 
 // -------------------------------------------------------
