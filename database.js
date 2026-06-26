@@ -2,7 +2,7 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join('/tmp', 'saturn.db');  // /tmp persiste entre reinícios automáticos
+const DB_PATH = path.join('/tmp', 'saturn.db');
 
 let db = null;
 
@@ -18,7 +18,7 @@ async function initDatabase() {
     console.log('🆕 Novo banco criado');
   }
 
-  // Criar tabelas se não existirem
+  // Cria tabelas se não existirem
   db.run(`
     CREATE TABLE IF NOT EXISTS admins (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,6 +27,14 @@ async function initDatabase() {
       role TEXT DEFAULT 'admin'
     )
   `);
+
+  // CORREÇÃO: adiciona a coluna 'role' se ela não existir (migration segura)
+  try {
+    db.run(`ALTER TABLE admins ADD COLUMN role TEXT DEFAULT 'admin'`);
+    console.log('✅ Coluna role adicionada à tabela admins');
+  } catch (e) {
+    // coluna já existe, ignora
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS scripts (
@@ -78,7 +86,7 @@ async function initDatabase() {
     )
   `);
 
-  saveDb(); // Salva já com as tabelas criadas
+  saveDb();
   return db;
 }
 
