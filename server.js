@@ -10,9 +10,6 @@ const { DB, saveDb } = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// -------------------------------------------------------
-// MIDDLEWARES
-// -------------------------------------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -94,7 +91,7 @@ app.get('/api/reset-admin', (req, res) => {
 });
 
 // -------------------------------------------------------
-// SCRIPTS (CRUD completo)
+// SCRIPTS
 // -------------------------------------------------------
 app.get('/api/scripts', authMiddleware, (req, res) => {
   const scripts = DB.scripts.map(s => ({
@@ -137,7 +134,6 @@ app.put('/api/scripts/:id', authMiddleware, (req, res) => {
   const script = DB.scripts.find(s => s.id === req.params.id);
   if (!script) return res.status(404).json({ error: 'Script não encontrado' });
 
-  // Histórico
   DB.versions.push({
     id: uuidv4(),
     script_id: script.id,
@@ -332,8 +328,7 @@ app.get('/admin/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'pub
 const user = process.env.ADMIN_USER || 'nanagui';
 const pass = process.env.ADMIN_PASS || '001010GGZEHEN';
 
-const adminExists = DB.admins.find(a => a.username === user);
-if (!adminExists) {
+if (!DB.admins.find(a => a.username === user)) {
   const hash = bcrypt.hashSync(pass, 10);
   DB.admins.push({ id: Date.now(), username: user, password_hash: hash, role: 'master' });
   saveDb();
@@ -341,6 +336,5 @@ if (!adminExists) {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🪐 Saturn Storage rodando em http://0.0.0.0:${PORT}`);
-  console.log(`🔑 Login: ${user} / ${pass}`);
+  console.log(`🪐 Rodando na porta ${PORT}`);
 });
