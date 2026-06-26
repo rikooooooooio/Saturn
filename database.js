@@ -19,72 +19,62 @@ async function initDatabase() {
   }
 
   // Cria tabelas se não existirem
-  db.run(`
-    CREATE TABLE IF NOT EXISTS admins (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT DEFAULT 'admin'
-    )
-  `);
+  db.run(`CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'admin'
+  )`);
 
-  // CORREÇÃO: adiciona a coluna 'role' se ela não existir (migration segura)
+  // Adiciona a coluna 'role' se necessário (ignora erro se já existir)
   try {
     db.run(`ALTER TABLE admins ADD COLUMN role TEXT DEFAULT 'admin'`);
-    console.log('✅ Coluna role adicionada à tabela admins');
+    console.log('✅ Coluna role adicionada');
   } catch (e) {
-    // coluna já existe, ignora
+    // coluna já existe
   }
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS scripts (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      content TEXT NOT NULL,
-      status TEXT DEFAULT 'online',
-      tags TEXT DEFAULT '[]',
-      executions INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
+  db.run(`CREATE TABLE IF NOT EXISTS scripts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    status TEXT DEFAULT 'online',
+    tags TEXT DEFAULT '[]',
+    executions INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS versions (
-      id TEXT PRIMARY KEY,
-      script_id TEXT,
-      name TEXT,
-      content TEXT,
-      status TEXT,
-      tags TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
+  db.run(`CREATE TABLE IF NOT EXISTS versions (
+    id TEXT PRIMARY KEY,
+    script_id TEXT,
+    name TEXT,
+    content TEXT,
+    status TEXT,
+    tags TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS keys (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      key TEXT UNIQUE NOT NULL,
-      script_id TEXT,
-      hwid TEXT DEFAULT '',
-      expires_at TEXT,
-      status TEXT DEFAULT 'active',
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
+  db.run(`CREATE TABLE IF NOT EXISTS keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    script_id TEXT,
+    hwid TEXT DEFAULT '',
+    expires_at TEXT,
+    status TEXT DEFAULT 'active',
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS execution_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      script_id TEXT,
-      key_used TEXT,
-      hwid TEXT,
-      ip TEXT,
-      user_agent TEXT,
-      success INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
+  db.run(`CREATE TABLE IF NOT EXISTS execution_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    script_id TEXT,
+    key_used TEXT,
+    hwid TEXT,
+    ip TEXT,
+    user_agent TEXT,
+    success INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
 
   saveDb();
   return db;
