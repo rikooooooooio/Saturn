@@ -1,129 +1,75 @@
 require('dotenv').config();
-
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { z } = require('zod');
 const rateLimit = require('express-rate-limit');
 const { DB, saveDb } = require('./database');
 
-// -------------------------------------------------------
-// ENV CHECK (SEM QUEBRAR SILENCIOSO)
-// -------------------------------------------------------
-const REQUIRED_ENVS = ['JWT_SECRET', 'ADMIN_USER', 'ADMIN_PASS'];
-
-for (const env of REQUIRED_ENVS) {
-  if (!process.env[env]) {
-    console.error(`❌ Missing env var: ${env}`);
-    process.exit(1);
-  }
-}
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const RESET_SECRET = process.env.RESET_SECRET || 'reset_admin_secret_2024';
+if (!JWT_SECRET) {
+  console.error('Missing JWT_SECRET');
+  process.exit(1);
+}
 
-const app = express();
-const PORT = process.env.PORT || 10000;
-
-// 🔥 FIX RENDER PROXY + RATE LIMIT BUG
+// 🔥 FIX RENDER + PROXY (ESSENCIAL)
 app.set('trust proxy', 1);
 
-// -------------------------------------------------------
-// MIDDLEWARES
-// -------------------------------------------------------
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// -------------------------------------------------------
-// RATE LIMIT (FIXED FOR PROXY)
-// -------------------------------------------------------
-const globalLimiter = rateLimit({
+// ---------------- RATE LIMIT ----------------
+app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
-  message: { error: 'Muitas requisições, tente novamente mais tarde' }
-});
+  max: 200
+}));
 
-app.use('/api/', globalLimiter);
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
-  message: { error: 'Muitas tentativas de login, tente novamente em 15 minutos' }
-});
-
-const loaderLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
-});
-
-// -------------------------------------------------------
-// SECURITY LOG
-// -------------------------------------------------------
-function securityLog(action, details, ip = 'unknown') {
-  const entry = {
-    id: Date.now(),
+// ---------------- SECURITY LOG ----------------
+function log(action, meta, req) {
+  DB.logs = DB.logs || [];
+  DB.logs.push({
     action,
-    details,
-    ip,
-    created_at: new Date().toISOString()
-  };
+    meta,
+    ip: req.ip,
+    time: new Date().toISOString()
+  });
 
-  DB.securityLogs.push(entry);
-  if (DB.securityLogs.length > 1000) DB.securityLogs.shift();
-
+  DB.logs = DB.logs.slice(-1000);
   saveDb();
-  console.log(`[SECURITY] ${action}: ${details} (IP: ${ip})`);
 }
 
-// -------------------------------------------------------
-// VALIDATION
-// -------------------------------------------------------
-const scriptCreateSchema = z.object({
-  name: z.string().min(1).max(100),
-  content: z.string().min(1).max(50000),
-  status: z.enum(['online', 'offline', 'maintenance', 'development']).default('online'),
-  tags: z.array(z.string().max(30)).max(10).default([])
-});
+// ---------------- JWT ----------------
+function auth(req, res, next) {
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ error: 'no token' });
 
-const keyCreateSchema = z.object({
-  scriptId: z.string().optional(),
-  hwid: z.string().max(100).optional().default(''),
-  expiresAt: z.string().datetime().optional()
-});
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'invalid token' });
+  }
+}
 
-// -------------------------------------------------------
-// AUTH
-// -------------------------------------------------------
-app.post('/api/auth/login', loginLimiter, (req, res) => {
+// ---------------- LOGIN ----------------
+app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Preencha todos os campos' });
-  }
-
   const admin = DB.admins.find(a => a.username === username);
+  if (!admin) return res.status(401).json({ error: 'invalid' });
 
-  if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
-    securityLog('LOGIN_FAILED', `User: ${username}`, req.ip);
-    return res.status(401).json({ error: 'Credenciais inválidas' });
+  if (!bcrypt.compareSync(password, admin.password_hash)) {
+    return res.status(401).json({ error: 'invalid' });
   }
 
   const token = jwt.sign(
-    { id: admin.id, username: admin.username, role: admin.role || 'admin' },
+    { id: admin.id, username: admin.username, role: admin.role },
     JWT_SECRET,
     { expiresIn: '8h' }
   );
@@ -131,135 +77,105 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   res.cookie('token', token, {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 8 * 60 * 60 * 1000
+    sameSite: 'strict'
   });
 
-  securityLog('LOGIN_SUCCESS', username, req.ip);
+  log('LOGIN_SUCCESS', username, req);
 
   res.json({ success: true });
 });
 
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('token');
-  res.json({ success: true });
+// ---------------- VERIFY ----------------
+app.get('/api/auth/me', auth, (req, res) => {
+  res.json(req.user);
 });
 
-app.get('/api/auth/me', (req, res) => {
-  const token = req.cookies?.token;
-  if (!token) return res.status(401).json({ error: 'Não autenticado' });
+// ---------------- DASHBOARD STATS (🔥 ANALYTICS) ----------------
+app.get('/api/stats', auth, (req, res) => {
+  const scripts = DB.scripts.length;
+  const keys = DB.keys.length;
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    res.json(decoded);
-  } catch {
-    res.status(401).json({ error: 'Token inválido' });
-  }
+  const executions = DB.scripts.reduce((a, b) => a + (b.executions || 0), 0);
+
+  const logs = DB.logs || [];
+
+  res.json({
+    scripts,
+    keys,
+    executions,
+    lastLogs: logs.slice(-10)
+  });
 });
 
-function authMiddleware(req, res, next) {
-  const token = req.cookies?.token;
-  if (!token) return res.status(401).json({ error: 'Acesso negado' });
+// ---------------- SCRIPTS (API REAL) ----------------
+app.get('/api/scripts', auth, (req, res) => {
+  res.json(DB.scripts);
+});
 
-  try {
-    req.admin = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    res.status(401).json({ error: 'Token inválido' });
-  }
-}
+app.post('/api/scripts', auth, (req, res) => {
+  const s = {
+    id: uuidv4(),
+    name: req.body.name,
+    content: req.body.content,
+    executions: 0,
+    created_at: new Date().toISOString()
+  };
 
-// -------------------------------------------------------
-// ADMIN ROUTES FIX (CAN NOT GET /admin FIX)
-// -------------------------------------------------------
+  DB.scripts.push(s);
+  saveDb();
+
+  log('SCRIPT_CREATED', s.name, req);
+
+  res.json(s);
+});
+
+// ---------------- KEYS ----------------
+app.get('/api/keys', auth, (req, res) => {
+  res.json(DB.keys);
+});
+
+app.post('/api/keys', auth, (req, res) => {
+  const key = 'SATURN-' + uuidv4().slice(0, 10);
+
+  const k = {
+    id: Date.now(),
+    key,
+    hwid: '',
+    script: req.body.script || null,
+    created_at: new Date().toISOString()
+  };
+
+  DB.keys.push(k);
+  saveDb();
+
+  log('KEY_CREATED', key, req);
+
+  res.json(k);
+});
+
+// ---------------- LOADER (analytics execução) ----------------
+app.get('/api/load/:id', (req, res) => {
+  const script = DB.scripts.find(s => s.id === req.params.id);
+  if (!script) return res.status(404).send('not found');
+
+  script.executions = (script.executions || 0) + 1;
+  saveDb();
+
+  log('SCRIPT_EXEC', script.name, req);
+
+  res.type('text').send(script.content);
+});
+
+// ---------------- PAGES ----------------
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'login.html'));
-});
-
-app.get('/admin/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'login.html'));
+  res.sendFile(path.join(__dirname, 'public/admin/login.html'));
 });
 
 app.get('/admin/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html'));
+  res.sendFile(path.join(__dirname, 'public/admin/dashboard.html'));
 });
 
-// -------------------------------------------------------
-// RESET ADMIN
-// -------------------------------------------------------
-app.get('/api/reset-admin', (req, res) => {
-  const { secret } = req.query;
-
-  if (secret !== RESET_SECRET) {
-    securityLog('RESET_FAIL', 'Invalid secret', req.ip);
-    return res.status(403).json({ error: 'Acesso negado' });
-  }
-
-  const user = process.env.ADMIN_USER;
-  const pass = process.env.ADMIN_PASS;
-
-  const hash = bcrypt.hashSync(pass, 10);
-
-  DB.admins = DB.admins.filter(a => a.username !== user);
-  DB.admins.push({
-    id: Date.now(),
-    username: user,
-    password_hash: hash,
-    role: 'master'
-  });
-
-  saveDb();
-
-  res.json({ success: true });
-});
-
-// -------------------------------------------------------
-// LOADER
-// -------------------------------------------------------
-app.get('/api/load/:scriptId', loaderLimiter, (req, res) => {
-  const key = req.query.key;
-
-  if (!key) return res.status(403).send('No key');
-
-  const keyData = DB.keys.find(k => k.key === key);
-
-  if (!keyData || keyData.status !== 'active') {
-    return res.status(403).send('Invalid key');
-  }
-
-  const script = DB.scripts.find(s => s.id === req.params.scriptId);
-
-  if (!script || script.status !== 'online') {
-    return res.status(404).send('Script not found');
-  }
-
-  script.executions++;
-  keyData.last_used = new Date().toISOString();
-  saveDb();
-
-  res.type('text/plain');
-  res.send(script.content);
-});
-
-// -------------------------------------------------------
-// START SERVER
-// -------------------------------------------------------
-const adminUser = process.env.ADMIN_USER;
-const adminPass = process.env.ADMIN_PASS;
-
-if (!DB.admins.find(a => a.username === adminUser)) {
-  DB.admins.push({
-    id: Date.now(),
-    username: adminUser,
-    password_hash: bcrypt.hashSync(adminPass, 10),
-    role: 'master'
-  });
-
-  saveDb();
-  console.log(`✅ Admin criado: ${adminUser}`);
-}
-
+// ---------------- START ----------------
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🪐 Saturn Storage rodando em http://0.0.0.0:${PORT}`);
+  console.log('🚀 running on ' + PORT);
 });
