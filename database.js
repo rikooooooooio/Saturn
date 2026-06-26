@@ -5,16 +5,20 @@ const DB_PATH = path.join(__dirname, 'data.json');
 
 let DB = {
   admins: [],
-  scripts: []
+  scripts: [],
+  versions: [],   // Histórico de versões
+  logs: []        // Logs de execução
 };
 
-// Carregar do arquivo
 try {
   if (fs.existsSync(DB_PATH)) {
     const raw = fs.readFileSync(DB_PATH, 'utf-8');
     DB = JSON.parse(raw);
+    // Garante que as novas chaves existam
+    DB.versions = DB.versions || [];
+    DB.logs = DB.logs || [];
   } else {
-    saveDb(); // cria o arquivo
+    saveDb();
   }
 } catch (e) {
   console.error('Erro ao carregar banco:', e.message);
