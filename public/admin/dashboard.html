@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saturn — Painel de Controle</title>
+  <title>Astro — Painel de Controle</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
@@ -350,7 +350,7 @@
         <ellipse cx="12" cy="12" rx="4" ry="10" fill="none" stroke="currentColor" stroke-width="2"/>
         <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/>
       </svg>
-      <span>Saturn</span>
+      <span>Astro</span>
     </div>
     <nav class="sidebar-nav">
       <button data-tab="dashboard" class="active">
@@ -634,7 +634,7 @@
       const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `saturn_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `astro_backup_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       showToast('Backup exportado!');
     }
