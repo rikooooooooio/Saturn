@@ -6,9 +6,7 @@ const DB_PATH = path.join('/tmp', 'saturn-data.json');
 let DB = {
   admins: [],
   scripts: [],
-  versions: [],
-  keys: [],
-  executionLogs: []
+  versions: []
 };
 
 function loadDb() {
@@ -19,7 +17,7 @@ function loadDb() {
       console.log('✅ Banco carregado do disco');
     } else {
       saveDb();
-      console.log('🆕 Banco novo criado');
+      console.log('🆕 Novo banco criado');
     }
   } catch (e) {
     console.error('Erro ao carregar banco:', e.message);
@@ -34,10 +32,6 @@ function saveDb() {
   }
 }
 
-// Inicializa
 loadDb();
 
-module.exports = {
-  DB,
-  saveDb
-};
+module.exports = { DB, saveDb };
