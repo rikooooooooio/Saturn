@@ -341,9 +341,11 @@
       <div class="header">
         <h1>Scripts</h1>
         <div style="display:flex; gap:0.5rem;">
-          <button class="btn" onclick="exportData()">Exportar</button>
-          <button class="btn" onclick="document.getElementById('importFile').click()">Importar</button>
-          <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+          <button class="btn" onclick="exportData()">Exportar Backup</button>
+          <button class="btn" onclick="document.getElementById('importBackupFile').click()">Importar Backup</button>
+          <input type="file" id="importBackupFile" accept=".json" style="display:none" onchange="importBackup(event)">
+          <button class="btn" onclick="document.getElementById('importTxtFiles').click()">Importar .txt</button>
+          <input type="file" id="importTxtFiles" accept=".txt" multiple style="display:none" onchange="importTxtFilesHandler(event)">
           <button class="btn btn-primary" onclick="openScriptModal()">+ Novo Script</button>
         </div>
       </div>
@@ -501,7 +503,7 @@
       showToast(id ? 'Script atualizado!' : 'Script criado!');
     });
 
-    // Export / Import
+    // Export Backup
     async function exportData() {
       const data = await api('/api/export');
       const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
@@ -511,14 +513,52 @@
       a.click();
       showToast('Backup exportado!');
     }
-    async function importData(event) {
+
+    // Import Backup (JSON)
+    async function importBackup(event) {
       const file = event.target.files[0];
       if (!file) return;
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const res = await api('/api/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-      loadScripts();
-      showToast(`${res.imported} scripts importados!`);
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const res = await api('/api/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        loadScripts();
+        showToast(`${res.imported} scripts importados!`);
+      } catch (err) {
+        showToast('Arquivo inválido.', 'error');
+      }
+      event.target.value = '';
+    }
+
+    // Import .txt (múltiplos arquivos)
+    async function importTxtFilesHandler(event) {
+      const files = Array.from(event.target.files);
+      if (files.length === 0) return;
+
+      const scriptsToCreate = [];
+      for (const file of files) {
+        if (!file.name.endsWith('.txt')) continue;
+        const content = await file.text();
+        const name = file.name.replace(/\.txt$/i, '');
+        scriptsToCreate.push({ name, content });
+      }
+
+      if (scriptsToCreate.length === 0) {
+        showToast('Nenhum arquivo .txt válido encontrado.', 'error');
+        return;
+      }
+
+      try {
+        const res = await api('/api/scripts/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scripts: scriptsToCreate })
+        });
+        showToast(`${res.length} script(s) criado(s) a partir dos arquivos .txt!`);
+        loadScripts();
+      } catch (err) {
+        showToast('Erro ao importar arquivos.', 'error');
+      }
       event.target.value = '';
     }
 
