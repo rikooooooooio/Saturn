@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 
 const DB_PATH = path.join('/tmp', 'saturn.db');
-
 let db = null;
 
 async function initDatabase() {
@@ -12,37 +11,29 @@ async function initDatabase() {
   if (fs.existsSync(DB_PATH)) {
     const buffer = fs.readFileSync(DB_PATH);
     db = new SQL.Database(buffer);
-    console.log('✅ Banco carregado do disco');
+    console.log('✅ Banco carregado');
   } else {
     db = new SQL.Database();
-    console.log('🆕 Novo banco criado');
+    console.log('🆕 Banco criado');
   }
 
-  // Cria tabelas se não existirem
+  // Cria todas as tabelas (estrutura limpa)
   db.run(`CREATE TABLE IF NOT EXISTS admins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'admin'
+    role TEXT NOT NULL DEFAULT 'admin'
   )`);
-
-  // Adiciona a coluna 'role' se necessário (ignora erro se já existir)
-  try {
-    db.run(`ALTER TABLE admins ADD COLUMN role TEXT DEFAULT 'admin'`);
-    console.log('✅ Coluna role adicionada');
-  } catch (e) {
-    // coluna já existe
-  }
 
   db.run(`CREATE TABLE IF NOT EXISTS scripts (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     content TEXT NOT NULL,
-    status TEXT DEFAULT 'online',
-    tags TEXT DEFAULT '[]',
-    executions INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    status TEXT NOT NULL DEFAULT 'online',
+    tags TEXT NOT NULL DEFAULT '[]',
+    executions INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS versions (
@@ -52,17 +43,17 @@ async function initDatabase() {
     content TEXT,
     status TEXT,
     tags TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS keys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT UNIQUE NOT NULL,
     script_id TEXT,
-    hwid TEXT DEFAULT '',
+    hwid TEXT NOT NULL DEFAULT '',
     expires_at TEXT,
-    status TEXT DEFAULT 'active',
-    created_at TEXT DEFAULT (datetime('now'))
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS execution_logs (
@@ -72,8 +63,8 @@ async function initDatabase() {
     hwid TEXT,
     ip TEXT,
     user_agent TEXT,
-    success INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now'))
+    success INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
 
   saveDb();
@@ -83,8 +74,7 @@ async function initDatabase() {
 function saveDb() {
   if (!db) return;
   const data = db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(DB_PATH, buffer);
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
 }
 
 function getDb() {
