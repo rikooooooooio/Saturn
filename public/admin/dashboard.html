@@ -500,29 +500,37 @@
           </td>
         </tr>
       `).join('');
-    }
 
-    // Event delegation para ações da tabela
-    document.getElementById('scriptsTable').addEventListener('click', function(e) {
-      const target = e.target.closest('button');
-      if (!target) return;
-      console.log('Botão clicado:', target.className, target.dataset);
-      if (target.classList.contains('edit-btn')) {
-        const id = target.getAttribute('data-id');
-        console.log('Editando script:', id);
-        if (id) editScript(id);
-      } else if (target.classList.contains('duplicate-btn')) {
-        const id = target.getAttribute('data-id');
-        if (id) duplicateScript(id);
-      } else if (target.classList.contains('copy-btn')) {
-        const short = target.getAttribute('data-short');
-        const token = target.getAttribute('data-token');
-        if (short && token) copyLoader(short, token);
-      } else if (target.classList.contains('delete-btn')) {
-        const id = target.getAttribute('data-id');
-        if (id) deleteScript(id);
-      }
-    });
+      // Adicionar event listeners diretamente em cada botão (forma mais confiável)
+      tbody.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          if (id) editScript(id);
+        });
+      });
+
+      tbody.querySelectorAll('.duplicate-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          if (id) duplicateScript(id);
+        });
+      });
+
+      tbody.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const short = this.getAttribute('data-short');
+          const token = this.getAttribute('data-token');
+          if (short && token) copyLoader(short, token);
+        });
+      });
+
+      tbody.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          if (id) deleteScript(id);
+        });
+      });
+    }
 
     function filterScripts() {
       const q = document.getElementById('searchInput').value.toLowerCase();
@@ -544,7 +552,6 @@
 
     function editScript(id) {
       if (!id) return;
-      console.log('Carregando script:', id);
       api('/api/scripts/' + id).then(script => {
         document.getElementById('modalTitle').textContent = 'Editar Script';
         document.getElementById('scriptId').value = script.id;
@@ -553,10 +560,7 @@
         document.getElementById('scriptContent').value = script.content;
         document.getElementById('changelogFields').style.display = 'block';
         document.getElementById('scriptModal').classList.add('active');
-      }).catch(e => {
-        console.error('Erro ao carregar script:', e);
-        showToast('Erro ao carregar script', 'error');
-      });
+      }).catch(e => showToast('Erro ao carregar script', 'error'));
     }
 
     function saveScript() {
