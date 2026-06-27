@@ -1,13 +1,22 @@
 require('dotenv').config();
 
 // ============================================================
-// VALIDAÇÃO OBRIGATÓRIA DE AMBIENTE
+// VALIDAÇÃO OBRIGATÓRIA DE AMBIENTE (sem fallbacks)
 // ============================================================
-if (!process.env.JWT_SECRET) { console.error('❌ ERRO FATAL: JWT_SECRET não definido no .env'); process.exit(1); }
-if (!process.env.COOKIE_SECRET) { console.error('❌ ERRO FATAL: COOKIE_SECRET não definido no .env'); process.exit(1); }
-if (!process.env.ADMIN_USER) { console.error('❌ ERRO FATAL: ADMIN_USER não definido no .env'); process.exit(1); }
-if (!process.env.ADMIN_PASS) { console.error('❌ ERRO FATAL: ADMIN_PASS não definido no .env'); process.exit(1); }
-if (!process.env.DATABASE_URL) { console.error('❌ ERRO FATAL: DATABASE_URL não definido no .env'); process.exit(1); }
+const requiredEnvVars = [
+  'JWT_SECRET',
+  'COOKIE_SECRET',
+  'ADMIN_USER',
+  'ADMIN_PASS',
+  'DATABASE_URL'
+];
+
+for (const varName of requiredEnvVars) {
+  if (!process.env[varName]) {
+    console.error(`❌ ERRO FATAL: ${varName} não definido no .env`);
+    process.exit(1);
+  }
+}
 
 const express = require('express');
 const cookieParser = require('cookie-parser');
@@ -25,11 +34,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ============================================================
-   CONFIGURAÇÕES
+   CONFIGURAÇÕES (todas do .env)
    ============================================================ */
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_SECRET = process.env.COOKIE_SECRET;
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || ''; // opcional
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ADMIN_USER = process.env.ADMIN_USER;
@@ -625,7 +634,7 @@ app.get('/api/backup', auth, masterOnly, async (req, res) => {
   }
 });
 
-// Backup automático a cada 6 horas (salva em arquivo local)
+// Backup automático a cada 6 horas
 setInterval(async () => {
   try {
     const scripts = (await pool.query('SELECT * FROM scripts')).rows;
