@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 // ============================================================
-// VALIDAÇÃO OBRIGATÓRIA DE AMBIENTE (sem RESET_SECRET)
+// VALIDAÇÃO OBRIGATÓRIA DE AMBIENTE
 // ============================================================
 const requiredEnvVars = [
   'JWT_SECRET',
@@ -44,7 +44,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_PASS = process.env.ADMIN_PASS;
 
-// 🔥 URL DE ADMIN PERSONALIZADA (difícil de adivinhar)
+// 🔥 URL DE ADMIN PERSONALIZADA
 const ADMIN_PATH = '/001010GGZEHENXylo9FrostNetaP7zQm2V8xKr6L';
 
 // Conexão com PostgreSQL (Render)
@@ -637,6 +637,7 @@ app.get('/api/backup', auth, masterOnly, async (req, res) => {
   }
 });
 
+// Backup automático a cada 6 horas (salva em arquivo local)
 setInterval(async () => {
   try {
     const scripts = (await pool.query('SELECT * FROM scripts')).rows;
@@ -722,16 +723,25 @@ app.get(ADMIN_PATH, (req, res) => res.sendFile(path.join(__dirname, 'public/admi
 app.get(`${ADMIN_PATH}/dashboard`, auth, (req, res) => res.sendFile(path.join(__dirname, 'public/admin/dashboard.html')));
 
 /* ============================================================
-   INICIALIZAÇÃO
+   INICIALIZAÇÃO COM CORREÇÃO AUTOMÁTICA DE SENHA
    ============================================================ */
 (async () => {
   try {
     await initDatabase();
-    const adminExists = await pool.query('SELECT id FROM admins WHERE LOWER(username) = LOWER($1)', [ADMIN_USER]);
-    if (adminExists.rows.length === 0) {
+    const adminResult = await pool.query('SELECT * FROM admins WHERE LOWER(username) = LOWER($1)', [ADMIN_USER]);
+    if (adminResult.rows.length === 0) {
       const hash = await bcrypt.hash(ADMIN_PASS, 10);
       await pool.query('INSERT INTO admins (username, password_hash, role) VALUES ($1, $2, $3)', [ADMIN_USER, hash, 'master']);
       console.log(`✅ Admin master criado: ${ADMIN_USER}`);
+    } else {
+      // 🔥 CORREÇÃO AUTOMÁTICA: Se a senha do .env não bater com o hash atual, atualiza
+      const admin = adminResult.rows[0];
+      const senhaCorreta = bcrypt.compareSync(ADMIN_PASS, admin.password_hash);
+      if (!senhaCorreta) {
+        const novoHash = await bcrypt.hash(ADMIN_PASS, 10);
+        await pool.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [novoHash, admin.id]);
+        console.log(`🔐 Senha do admin ${ADMIN_USER} atualizada automaticamente.`);
+      }
     }
   } catch (err) {
     console.error('⚠️ PostgreSQL indisponível:', err.message);
