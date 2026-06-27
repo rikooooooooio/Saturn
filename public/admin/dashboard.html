@@ -2,52 +2,80 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Astro — Diagnóstico XHR</title>
+  <title>Astro — Scripts (via fetch)</title>
   <style>
-    body { background: #0a0a0a; color: #fff; font-family: monospace; padding: 2rem; }
-    .log { margin-bottom: 0.5rem; }
-    .ok { color: #4ade80; }
-    .err { color: #f87171; }
-    .info { color: #a0a0a0; }
+    body {
+      background: #0a0a0a;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+    }
+    button {
+      padding: 0.7rem 1.5rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+    }
+    pre {
+      background: #111;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      color: #ccc;
+    }
+    .error {
+      color: #f87171;
+    }
   </style>
 </head>
 <body>
-  <h1>🔍 Diagnóstico da Requisição</h1>
-  <div id="logs"></div>
+  <h1>📜 Scripts</h1>
+  <button id="loadBtn">Carregar Scripts</button>
+  <div id="output"></div>
 
   <script>
-    var logs = document.getElementById('logs');
-    function log(msg, cls) {
-      var div = document.createElement('div');
-      div.className = 'log ' + (cls || 'info');
-      div.textContent = msg;
-      logs.appendChild(div);
-    }
+    const ADMIN_PATH = '/painel';
+    const output = document.getElementById('output');
+    const loadBtn = document.getElementById('loadBtn');
 
-    var xhr = new XMLHttpRequest();
-    log('Iniciando XHR para /api/scripts');
+    loadBtn.addEventListener('click', async () => {
+      output.innerHTML = 'Carregando...';
+      try {
+        const res = await fetch('/api/scripts', {
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' }
+        });
 
-    xhr.onreadystatechange = function() {
-      log('readyState: ' + xhr.readyState + ' (status: ' + xhr.status + ')');
-      if (xhr.readyState === 4) {
-        log('Resposta final: status ' + xhr.status, xhr.status === 200 ? 'ok' : 'err');
-        log('Resposta bruta: ' + xhr.responseText, 'info');
+        if (res.status === 401) {
+          window.location.href = ADMIN_PATH;
+          return;
+        }
+
+        if (!res.ok) {
+          output.innerHTML = `<div class="error">Erro ${res.status}: ${await res.text()}</div>`;
+          return;
+        }
+
+        const scripts = await res.json();
+
+        if (!Array.isArray(scripts) || scripts.length === 0) {
+          output.innerHTML = '<p>Nenhum script criado ainda.</p>';
+          return;
+        }
+
+        output.innerHTML = '<pre>' + JSON.stringify(scripts, null, 2) + '</pre>';
+      } catch (err) {
+        output.innerHTML = `<div class="error">Falha na requisição: ${err.message}</div>`;
       }
-    };
+    });
 
-    xhr.open('GET', '/api/scripts', true);
-    xhr.withCredentials = true;
-    xhr.timeout = 10000;
-
-    xhr.onerror = function() {
-      log('Erro de rede (onerror disparado)', 'err');
-    };
-
-    xhr.ontimeout = function() {
-      log('Timeout da requisição', 'err');
-    };
-
-    xhr.send();
+    // Carrega automaticamente também
+    loadBtn.click();
   </script>
 </body>
 </html>
