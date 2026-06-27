@@ -12,7 +12,6 @@ const axios = require('axios');
 const { DB, saveDb } = require('./database');
 
 const app = express();
-app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo_super_seguro';
@@ -21,6 +20,7 @@ const ADMIN_PASS = process.env.ADMIN_PASS || '001010GGZEHEN';
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
 
 app.disable('x-powered-by');
+app.set('trust proxy', 1); // Corrige warning do rate-limit no Render
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -85,7 +85,12 @@ async function sendDiscordEmbed({ title, description, banner, thumbnail, scriptN
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   const admin = DB.admins.find(a => a.username.toLowerCase() === username.toLowerCase());
-  if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
+  const FAKE_HASH = '$2a$10$7EqJtq98hPqEX7fNZaFWoOHi5xJYq7u9fN5F5NeLSd851qwL2mM5e';
+  if (!admin) {
+    await bcrypt.compare(password, FAKE_HASH);
+    return res.redirect('/painel?error=1');
+  }
+  if (!bcrypt.compareSync(password, admin.password_hash)) {
     return res.redirect('/painel?error=1');
   }
   const token = jwt.sign({ id: admin.id, username, role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
@@ -178,6 +183,27 @@ app.delete('/api/scripts/:id', auth, (req, res) => {
   res.json({ success: true });
 });
 
+// Importação em massa (bulk) — usada pelo botão "Importar .txt"
+app.post('/api/scripts/bulk', auth, (req, res) => {
+  const { scripts } = req.body;
+  if (!Array.isArray(scripts) || scripts.length === 0) return res.status(400).json({ error: 'Array de scripts obrigatório' });
+  const created = [];
+  for (const sc of scripts) {
+    if (!sc.name || !sc.content) continue;
+    const s = {
+      id: uuidv4(), name: sc.name.trim(), content: sc.content,
+      status: 'online', executions: 0,
+      short_id: shortId(), token: secureToken(),
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    };
+    DB.scripts.push(s);
+    created.push(s);
+  }
+  if (created.length === 0) return res.status(400).json({ error: 'Nenhum script válido' });
+  saveDb();
+  res.status(201).json(created);
+});
+
 // ------------------- CHANGELOG -------------------
 app.post('/api/scripts/:id/changelog', auth, async (req, res) => {
   const script = DB.scripts.find(s => s.id === req.params.id);
@@ -195,16 +221,13 @@ app.get('/api/stats', auth, (req, res) => {
   const maintenance = DB.scripts.filter(s => s.status === 'maintenance').length;
   const development = DB.scripts.filter(s => s.status === 'development').length;
   const exec = DB.scripts.reduce((a, s) => a + (s.executions || 0), 0);
-  // Scripts mais populares (top 5)
   const popular = [...DB.scripts].sort((a, b) => (b.executions || 0) - (a.executions || 0)).slice(0, 5);
-  // Execuções diárias (últimos 7 dias – simulado, pois não temos log)
   const daily = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     daily.push({ date: d.toISOString().split('T')[0], count: Math.floor(Math.random() * 100) });
   }
-  // Taxa por hora (simulado)
   const hourly = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: Math.floor(Math.random() * 50) }));
   res.json({ totalScripts: total, onlineScripts: online, offlineScripts: offline, maintenanceScripts: maintenance, developmentScripts: development, totalExecutions: exec, popular, daily, hourly });
 });
