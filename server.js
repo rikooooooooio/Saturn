@@ -35,10 +35,14 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_PASS = process.env.ADMIN_PASS;
 
-// Conexão com PostgreSQL
+// Conexão com PostgreSQL — força IPv4 e configura SSL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: IS_PRODUCTION ? { rejectUnauthorized: false } : false,
+  ssl: { rejectUnauthorized: false },
+  family: 4, // 🔥 Resolve o erro ENETUNREACH (IPv6 → IPv4)
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 /* ============================================================
@@ -256,8 +260,13 @@ app.delete('/api/admin/block-ip/:ip', auth, async (req, res) => {
 // Middleware de bloqueio de IP
 app.use(async (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
-  const result = await pool.query('SELECT ip FROM blocked_ips WHERE ip = $1', [ip]);
-  if (result.rows.length > 0) return res.status(403).send('Acesso bloqueado.');
+  try {
+    const result = await pool.query('SELECT ip FROM blocked_ips WHERE ip = $1', [ip]);
+    if (result.rows.length > 0) return res.status(403).send('Acesso bloqueado.');
+  } catch (err) {
+    // Se o banco falhar, permite o acesso
+    console.error('Erro ao verificar IP bloqueado:', err.message);
+  }
   next();
 });
 
@@ -302,24 +311,30 @@ app.get('/api/scripts', auth, async (req, res) => {
 
   try {
     const scriptsResult = await pool.query(query, params);
-    const countResult = await pool.query(countQuery, conditions.length > 0 ? params.slice(0, -2) : []);
+    const countParams = conditions.length > 0 ? params.slice(0, -2) : [];
+    const countResult = await pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].count);
     res.json({ data: scriptsResult.rows, page, totalPages: Math.ceil(total / limit), total });
   } catch (err) {
+    console.error('Erro ao buscar scripts:', err);
     res.status(500).json({ error: 'Erro ao buscar scripts' });
   }
 });
 
 app.get('/api/scripts/:id', auth, async (req, res) => {
-  const result = await pool.query(`
-    SELECT s.*, COALESCE(json_agg(t.*) FILTER (WHERE t.id IS NOT NULL), '[]') AS tags
-    FROM scripts s
-    LEFT JOIN script_tags st ON s.id = st.script_id
-    LEFT JOIN tags t ON st.tag_id = t.id
-    WHERE s.id = $1
-    GROUP BY s.id`, [req.params.id]);
-  if (result.rows.length === 0) return res.status(404).json({ error: 'Script não encontrado' });
-  res.json(result.rows[0]);
+  try {
+    const result = await pool.query(`
+      SELECT s.*, COALESCE(json_agg(t.*) FILTER (WHERE t.id IS NOT NULL), '[]') AS tags
+      FROM scripts s
+      LEFT JOIN script_tags st ON s.id = st.script_id
+      LEFT JOIN tags t ON st.tag_id = t.id
+      WHERE s.id = $1
+      GROUP BY s.id`, [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Script não encontrado' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar script' });
+  }
 });
 
 app.post('/api/scripts', auth, async (req, res) => {
@@ -329,137 +344,180 @@ app.post('/api/scripts', auth, async (req, res) => {
   const id = uuidv4();
   const short_id = shortId();
   const token = secureToken();
-  await pool.query(
-    `INSERT INTO scripts (id, name, content, status, sandbox, silent, daily_limit, expires_at, short_id, token)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [id, name.trim(), content, validStatuses.includes(status) ? status : 'online', sandbox || false, silent || false, daily_limit || 0, expires_at || null, short_id, token]
-  );
-  // Tags
-  if (Array.isArray(tags)) {
-    for (const tagName of tags) {
-      let tagResult = await pool.query('SELECT id FROM tags WHERE name = $1', [tagName]);
-      if (tagResult.rows.length === 0) {
-        tagResult = await pool.query('INSERT INTO tags (name) VALUES ($1) RETURNING id', [tagName]);
+  try {
+    await pool.query(
+      `INSERT INTO scripts (id, name, content, status, sandbox, silent, daily_limit, expires_at, short_id, token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, name.trim(), content, validStatuses.includes(status) ? status : 'online', sandbox || false, silent || false, daily_limit || 0, expires_at || null, short_id, token]
+    );
+    if (Array.isArray(tags)) {
+      for (const tagName of tags) {
+        let tagResult = await pool.query('SELECT id FROM tags WHERE name = $1', [tagName]);
+        if (tagResult.rows.length === 0) {
+          tagResult = await pool.query('INSERT INTO tags (name) VALUES ($1) RETURNING id', [tagName]);
+        }
+        await pool.query('INSERT INTO script_tags (script_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, tagResult.rows[0].id]);
       }
-      await pool.query('INSERT INTO script_tags (script_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, tagResult.rows[0].id]);
     }
+    const newScript = await pool.query('SELECT * FROM scripts WHERE id = $1', [id]);
+    res.status(201).json(newScript.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao criar script' });
   }
-  const newScript = await pool.query('SELECT * FROM scripts WHERE id = $1', [id]);
-  res.status(201).json(newScript.rows[0]);
 });
 
 app.put('/api/scripts/:id', auth, async (req, res) => {
-  const script = (await pool.query('SELECT * FROM scripts WHERE id = $1', [req.params.id])).rows[0];
-  if (!script) return res.status(404).json({ error: 'Script não encontrado' });
-  // Salvar versão anterior
-  await pool.query('INSERT INTO script_versions (script_id, name, content, status) VALUES ($1,$2,$3,$4)',
-    [script.id, script.name, script.content, script.status]);
-  const { name, content, status, sandbox, silent, daily_limit, expires_at, tags } = req.body;
-  const validStatuses = ['online', 'offline', 'maintenance', 'development'];
-  if (name !== undefined) script.name = name.trim();
-  if (content !== undefined) script.content = content;
-  if (status !== undefined && validStatuses.includes(status)) script.status = status;
-  if (sandbox !== undefined) script.sandbox = sandbox;
-  if (silent !== undefined) script.silent = silent;
-  if (daily_limit !== undefined) script.daily_limit = daily_limit;
-  if (expires_at !== undefined) script.expires_at = expires_at;
-  await pool.query(
-    `UPDATE scripts SET name=$1, content=$2, status=$3, sandbox=$4, silent=$5, daily_limit=$6, expires_at=$7, updated_at=NOW() WHERE id=$8`,
-    [script.name, script.content, script.status, script.sandbox, script.silent, script.daily_limit, script.expires_at, script.id]
-  );
-  // Atualizar tags
-  if (Array.isArray(tags)) {
-    await pool.query('DELETE FROM script_tags WHERE script_id = $1', [script.id]);
-    for (const tagName of tags) {
-      let tagResult = await pool.query('SELECT id FROM tags WHERE name = $1', [tagName]);
-      if (tagResult.rows.length === 0) {
-        tagResult = await pool.query('INSERT INTO tags (name) VALUES ($1) RETURNING id', [tagName]);
+  try {
+    const script = (await pool.query('SELECT * FROM scripts WHERE id = $1', [req.params.id])).rows[0];
+    if (!script) return res.status(404).json({ error: 'Script não encontrado' });
+    await pool.query('INSERT INTO script_versions (script_id, name, content, status) VALUES ($1,$2,$3,$4)',
+      [script.id, script.name, script.content, script.status]);
+    const { name, content, status, sandbox, silent, daily_limit, expires_at, tags } = req.body;
+    const validStatuses = ['online', 'offline', 'maintenance', 'development'];
+    if (name !== undefined) script.name = name.trim();
+    if (content !== undefined) script.content = content;
+    if (status !== undefined && validStatuses.includes(status)) script.status = status;
+    if (sandbox !== undefined) script.sandbox = sandbox;
+    if (silent !== undefined) script.silent = silent;
+    if (daily_limit !== undefined) script.daily_limit = daily_limit;
+    if (expires_at !== undefined) script.expires_at = expires_at;
+    await pool.query(
+      `UPDATE scripts SET name=$1, content=$2, status=$3, sandbox=$4, silent=$5, daily_limit=$6, expires_at=$7, updated_at=NOW() WHERE id=$8`,
+      [script.name, script.content, script.status, script.sandbox, script.silent, script.daily_limit, script.expires_at, script.id]
+    );
+    if (Array.isArray(tags)) {
+      await pool.query('DELETE FROM script_tags WHERE script_id = $1', [script.id]);
+      for (const tagName of tags) {
+        let tagResult = await pool.query('SELECT id FROM tags WHERE name = $1', [tagName]);
+        if (tagResult.rows.length === 0) {
+          tagResult = await pool.query('INSERT INTO tags (name) VALUES ($1) RETURNING id', [tagName]);
+        }
+        await pool.query('INSERT INTO script_tags (script_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [script.id, tagResult.rows[0].id]);
       }
-      await pool.query('INSERT INTO script_tags (script_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [script.id, tagResult.rows[0].id]);
     }
+    res.json(script);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao atualizar script' });
   }
-  res.json(script);
 });
 
 app.delete('/api/scripts/:id', auth, async (req, res) => {
-  await pool.query('DELETE FROM scripts WHERE id = $1', [req.params.id]);
-  res.json({ success: true });
+  try {
+    await pool.query('DELETE FROM scripts WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir script' });
+  }
 });
 
 app.post('/api/scripts/:id/duplicate', auth, async (req, res) => {
-  const original = (await pool.query('SELECT * FROM scripts WHERE id = $1', [req.params.id])).rows[0];
-  if (!original) return res.status(404).json({ error: 'Script não encontrado' });
-  const id = uuidv4();
-  await pool.query(
-    `INSERT INTO scripts (id, name, content, status, sandbox, silent, daily_limit, expires_at, short_id, token)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [id, original.name + ' (cópia)', original.content, original.status, original.sandbox, original.silent, original.daily_limit, original.expires_at, shortId(), secureToken()]
-  );
-  res.status(201).json((await pool.query('SELECT * FROM scripts WHERE id = $1', [id])).rows[0]);
+  try {
+    const original = (await pool.query('SELECT * FROM scripts WHERE id = $1', [req.params.id])).rows[0];
+    if (!original) return res.status(404).json({ error: 'Script não encontrado' });
+    const id = uuidv4();
+    await pool.query(
+      `INSERT INTO scripts (id, name, content, status, sandbox, silent, daily_limit, expires_at, short_id, token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, original.name + ' (cópia)', original.content, original.status, original.sandbox, original.silent, original.daily_limit, original.expires_at, shortId(), secureToken()]
+    );
+    const duplicated = await pool.query('SELECT * FROM scripts WHERE id = $1', [id]);
+    res.status(201).json(duplicated.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao duplicar script' });
+  }
 });
 
 app.post('/api/scripts/bulk', auth, async (req, res) => {
   const { scripts } = req.body;
   if (!Array.isArray(scripts) || scripts.length === 0) return res.status(400).json({ error: 'Array obrigatório' });
   const created = [];
-  for (const sc of scripts) {
-    if (!sc.name || !sc.content) continue;
-    const id = uuidv4();
-    await pool.query(
-      `INSERT INTO scripts (id, name, content, short_id, token) VALUES ($1,$2,$3,$4,$5)`,
-      [id, sc.name.trim(), sc.content, shortId(), secureToken()]
-    );
-    created.push((await pool.query('SELECT * FROM scripts WHERE id = $1', [id])).rows[0]);
+  try {
+    for (const sc of scripts) {
+      if (!sc.name || !sc.content) continue;
+      const id = uuidv4();
+      await pool.query(
+        `INSERT INTO scripts (id, name, content, short_id, token) VALUES ($1,$2,$3,$4,$5)`,
+        [id, sc.name.trim(), sc.content, shortId(), secureToken()]
+      );
+      created.push((await pool.query('SELECT * FROM scripts WHERE id = $1', [id])).rows[0]);
+    }
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro na importação em massa' });
   }
-  res.status(201).json(created);
 });
 
 // Histórico de versões
 app.get('/api/scripts/:id/versions', auth, async (req, res) => {
-  const result = await pool.query('SELECT * FROM script_versions WHERE script_id = $1 ORDER BY created_at DESC', [req.params.id]);
-  res.json(result.rows);
+  try {
+    const result = await pool.query('SELECT * FROM script_versions WHERE script_id = $1 ORDER BY created_at DESC', [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar versões' });
+  }
 });
 
 app.post('/api/scripts/:id/restore', auth, async (req, res) => {
   const { versionId } = req.body;
-  const version = (await pool.query('SELECT * FROM script_versions WHERE id = $1', [versionId])).rows[0];
-  if (!version) return res.status(404).json({ error: 'Versão não encontrada' });
-  const script = (await pool.query('SELECT * FROM scripts WHERE id = $1', [req.params.id])).rows[0];
-  if (!script) return res.status(404).json({ error: 'Script não encontrado' });
-  await pool.query('INSERT INTO script_versions (script_id, name, content, status) VALUES ($1,$2,$3,$4)',
-    [script.id, script.name, script.content, script.status]);
-  await pool.query('UPDATE scripts SET name=$1, content=$2, status=$3, updated_at=NOW() WHERE id=$4',
-    [version.name, version.content, version.status, script.id]);
-  res.json((await pool.query('SELECT * FROM scripts WHERE id = $1', [script.id])).rows[0]);
+  try {
+    const version = (await pool.query('SELECT * FROM script_versions WHERE id = $1', [versionId])).rows[0];
+    if (!version) return res.status(404).json({ error: 'Versão não encontrada' });
+    const script = (await pool.query('SELECT * FROM scripts WHERE id = $1', [req.params.id])).rows[0];
+    if (!script) return res.status(404).json({ error: 'Script não encontrado' });
+    await pool.query('INSERT INTO script_versions (script_id, name, content, status) VALUES ($1,$2,$3,$4)',
+      [script.id, script.name, script.content, script.status]);
+    await pool.query('UPDATE scripts SET name=$1, content=$2, status=$3, updated_at=NOW() WHERE id=$4',
+      [version.name, version.content, version.status, script.id]);
+    const restored = await pool.query('SELECT * FROM scripts WHERE id = $1', [script.id]);
+    res.json(restored.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao restaurar versão' });
+  }
 });
 
-// Changelog
+// Changelog via Discord
 app.post('/api/scripts/:id/changelog', auth, async (req, res) => {
-  const script = (await pool.query('SELECT name FROM scripts WHERE id = $1', [req.params.id])).rows[0];
-  if (!script) return res.status(404).json({ error: 'Script não encontrado' });
-  const { title, description, banner, thumbnail } = req.body;
-  await sendDiscordEmbed({ title, description, banner, thumbnail, scriptName: script.name });
-  res.json({ success: true });
+  try {
+    const script = (await pool.query('SELECT name FROM scripts WHERE id = $1', [req.params.id])).rows[0];
+    if (!script) return res.status(404).json({ error: 'Script não encontrado' });
+    const { title, description, banner, thumbnail } = req.body;
+    await sendDiscordEmbed({ title, description, banner, thumbnail, scriptName: script.name });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao enviar changelog' });
+  }
 });
 
 /* ============================================================
    TAGS
    ============================================================ */
 app.get('/api/tags', auth, async (req, res) => {
-  const result = await pool.query('SELECT * FROM tags ORDER BY name');
-  res.json(result.rows);
+  try {
+    const result = await pool.query('SELECT * FROM tags ORDER BY name');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar tags' });
+  }
 });
 
 app.post('/api/tags', auth, async (req, res) => {
   const { name, color } = req.body;
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
-  const result = await pool.query('INSERT INTO tags (name, color) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET color = $2 RETURNING *', [name, color || '#6366f1']);
-  res.status(201).json(result.rows[0]);
+  try {
+    const result = await pool.query('INSERT INTO tags (name, color) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET color = $2 RETURNING *', [name, color || '#6366f1']);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao criar tag' });
+  }
 });
 
 app.delete('/api/tags/:id', auth, async (req, res) => {
-  await pool.query('DELETE FROM tags WHERE id = $1', [req.params.id]);
-  res.json({ success: true });
+  try {
+    await pool.query('DELETE FROM tags WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir tag' });
+  }
 });
 
 /* ============================================================
@@ -502,9 +560,13 @@ app.get('/api/stats', auth, async (req, res) => {
    ALERTAS VISUAIS
    ============================================================ */
 app.get('/api/alerts', auth, async (req, res) => {
-  const offlineScripts = (await pool.query('SELECT id, name FROM scripts WHERE status = $1', ['offline'])).rows;
-  const expiringScripts = (await pool.query('SELECT id, name, expires_at FROM scripts WHERE expires_at IS NOT NULL AND expires_at < NOW() + INTERVAL \'3 days\' AND status = $1', ['online'])).rows;
-  res.json({ offline: offlineScripts, expiring: expiringScripts });
+  try {
+    const offlineScripts = (await pool.query('SELECT id, name FROM scripts WHERE status = $1', ['offline'])).rows;
+    const expiringScripts = (await pool.query('SELECT id, name, expires_at FROM scripts WHERE expires_at IS NOT NULL AND expires_at < NOW() + INTERVAL \'3 days\' AND status = $1', ['online'])).rows;
+    res.json({ offline: offlineScripts, expiring: expiringScripts });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar alertas' });
+  }
 });
 
 /* ============================================================
@@ -532,31 +594,39 @@ app.get('/api/health', (req, res) => {
    ============================================================ */
 app.get('/api/stats/export', auth, async (req, res) => {
   const format = req.query.format || 'json';
-  const stats = {
-    totalScripts: (await pool.query('SELECT COUNT(*) FROM scripts')).rows[0].count,
-    onlineScripts: (await pool.query('SELECT COUNT(*) FROM scripts WHERE status = $1', ['online'])).rows[0].count,
-    totalExecutions: (await pool.query('SELECT SUM(executions) FROM scripts')).rows[0].sum || 0,
-    generatedAt: new Date().toISOString()
-  };
-  if (format === 'csv') {
-    const csv = 'metric,value\n' + Object.entries(stats).map(([k, v]) => `${k},${v}`).join('\n');
-    res.header('Content-Type', 'text/csv');
-    res.attachment('astro_stats.csv');
-    return res.send(csv);
+  try {
+    const stats = {
+      totalScripts: (await pool.query('SELECT COUNT(*) FROM scripts')).rows[0].count,
+      onlineScripts: (await pool.query('SELECT COUNT(*) FROM scripts WHERE status = $1', ['online'])).rows[0].count,
+      totalExecutions: (await pool.query('SELECT SUM(executions) FROM scripts')).rows[0].sum || 0,
+      generatedAt: new Date().toISOString()
+    };
+    if (format === 'csv') {
+      const csv = 'metric,value\n' + Object.entries(stats).map(([k, v]) => `${k},${v}`).join('\n');
+      res.header('Content-Type', 'text/csv');
+      res.attachment('astro_stats.csv');
+      return res.send(csv);
+    }
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao exportar estatísticas' });
   }
-  res.json(stats);
 });
 
 /* ============================================================
    BACKUP AUTOMÁTICO
    ============================================================ */
 app.get('/api/backup', auth, masterOnly, async (req, res) => {
-  const scripts = (await pool.query('SELECT * FROM scripts')).rows;
-  const versions = (await pool.query('SELECT * FROM script_versions')).rows;
-  const tags = (await pool.query('SELECT * FROM tags')).rows;
-  const scriptTags = (await pool.query('SELECT * FROM script_tags')).rows;
-  const backup = { scripts, versions, tags, scriptTags, exported_at: new Date().toISOString() };
-  res.json(backup);
+  try {
+    const scripts = (await pool.query('SELECT * FROM scripts')).rows;
+    const versions = (await pool.query('SELECT * FROM script_versions')).rows;
+    const tags = (await pool.query('SELECT * FROM tags')).rows;
+    const scriptTags = (await pool.query('SELECT * FROM script_tags')).rows;
+    const backup = { scripts, versions, tags, scriptTags, exported_at: new Date().toISOString() };
+    res.json(backup);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao gerar backup' });
+  }
 });
 
 // Backup automático a cada 6 horas (salva em arquivo local)
@@ -566,11 +636,43 @@ setInterval(async () => {
     const versions = (await pool.query('SELECT * FROM script_versions')).rows;
     const backup = { scripts, versions, timestamp: new Date().toISOString() };
     const fs = require('fs');
-    const path = require('path');
-    fs.writeFileSync(path.join(__dirname, 'backups', `backup_${Date.now()}.json`), JSON.stringify(backup, null, 2));
+    const backupsDir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
+    fs.writeFileSync(path.join(backupsDir, `backup_${Date.now()}.json`), JSON.stringify(backup, null, 2));
     console.log('✅ Backup automático realizado');
   } catch (err) { console.error('❌ Erro no backup automático:', err.message); }
 }, 6 * 60 * 60 * 1000);
+
+/* ============================================================
+   EXPORT / IMPORT (JSON)
+   ============================================================ */
+app.get('/api/export', auth, async (req, res) => {
+  try {
+    const scripts = (await pool.query('SELECT * FROM scripts')).rows;
+    res.json({ scripts, exported_at: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao exportar' });
+  }
+});
+
+app.post('/api/import', auth, masterOnly, async (req, res) => {
+  const { scripts, confirmation } = req.body;
+  if (confirmation !== 'IMPORTAR') return res.status(400).json({ error: 'Confirmação necessária. Envie { confirmation: "IMPORTAR" }.' });
+  if (!Array.isArray(scripts)) return res.status(400).json({ error: 'Formato inválido' });
+  try {
+    await pool.query('DELETE FROM scripts');
+    for (const s of scripts) {
+      await pool.query(
+        `INSERT INTO scripts (id, name, content, status, sandbox, silent, daily_limit, expires_at, short_id, token, executions, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [s.id, s.name, s.content, s.status || 'online', s.sandbox || false, s.silent || false, s.daily_limit || 0, s.expires_at || null, s.short_id, s.token, s.executions || 0, s.created_at || new Date().toISOString(), s.updated_at || new Date().toISOString()]
+      );
+    }
+    res.json({ success: true, imported: scripts.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao importar' });
+  }
+});
 
 /* ============================================================
    LOADER PROTEGIDO COM LIMITES
@@ -581,24 +683,28 @@ app.get('/api/load/:shortId/:token', loaderLimiter, async (req, res) => {
   if (ua && !ua.includes('roblox')) {
     return res.status(403).sendFile(path.join(__dirname, 'public', 'blocked.html'));
   }
-  const script = (await pool.query('SELECT * FROM scripts WHERE short_id = $1 AND token = $2', [req.params.shortId, req.params.token])).rows[0];
-  if (!script || script.status !== 'online') return res.status(404).send('Script indisponível.');
-  if (script.expires_at && new Date(script.expires_at) < new Date()) {
-    await pool.query('UPDATE scripts SET status = $1 WHERE id = $2', ['offline', script.id]);
-    return res.status(404).send('Script expirado.');
+  try {
+    const script = (await pool.query('SELECT * FROM scripts WHERE short_id = $1 AND token = $2', [req.params.shortId, req.params.token])).rows[0];
+    if (!script || script.status !== 'online') return res.status(404).send('Script indisponível.');
+    if (script.expires_at && new Date(script.expires_at) < new Date()) {
+      await pool.query('UPDATE scripts SET status = $1 WHERE id = $2', ['offline', script.id]);
+      return res.status(404).send('Script expirado.');
+    }
+    if (script.daily_limit > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const todayCount = (await pool.query('SELECT COUNT(*) FROM execution_logs WHERE script_id = $1 AND DATE(created_at) = $2', [script.id, today])).rows[0].count;
+      if (todayCount >= script.daily_limit) return res.status(429).send('Limite diário de execuções atingido.');
+    }
+    if (!script.silent) {
+      await pool.query('UPDATE scripts SET executions = executions + 1 WHERE id = $1', [script.id]);
+    }
+    const ip = req.ip || req.connection.remoteAddress;
+    const country = req.headers['cf-ipcountry'] || await getCountry(ip);
+    await pool.query('INSERT INTO execution_logs (script_id, ip, country, user_agent) VALUES ($1,$2,$3,$4)', [script.id, ip, country, ua]);
+    res.type('text/plain').send(script.content);
+  } catch (err) {
+    res.status(500).send('Erro interno');
   }
-  if (script.daily_limit > 0) {
-    const today = new Date().toISOString().split('T')[0];
-    const todayCount = (await pool.query('SELECT COUNT(*) FROM execution_logs WHERE script_id = $1 AND DATE(created_at) = $2', [script.id, today])).rows[0].count;
-    if (todayCount >= script.daily_limit) return res.status(429).send('Limite diário de execuções atingido.');
-  }
-  if (!script.silent) {
-    await pool.query('UPDATE scripts SET executions = executions + 1 WHERE id = $1', [script.id]);
-  }
-  const ip = req.ip || req.connection.remoteAddress;
-  const country = req.headers['cf-ipcountry'] || await getCountry(ip);
-  await pool.query('INSERT INTO execution_logs (script_id, ip, country, user_agent) VALUES ($1,$2,$3,$4)', [script.id, ip, country, ua]);
-  res.type('text/plain').send(script.content);
 });
 
 /* ============================================================
@@ -612,13 +718,19 @@ app.get('/painel/dashboard', auth, (req, res) => res.sendFile(path.join(__dirnam
    INICIALIZAÇÃO
    ============================================================ */
 (async () => {
-  await initDatabase();
-  // Criar admin master se não existir
-  const adminExists = await pool.query('SELECT id FROM admins WHERE LOWER(username) = LOWER($1)', [ADMIN_USER]);
-  if (adminExists.rows.length === 0) {
-    const hash = await bcrypt.hash(ADMIN_PASS, 10);
-    await pool.query('INSERT INTO admins (username, password_hash, role) VALUES ($1, $2, $3)', [ADMIN_USER, hash, 'master']);
-    console.log(`✅ Admin master criado: ${ADMIN_USER}`);
+  try {
+    await initDatabase();
+    const adminExists = await pool.query('SELECT id FROM admins WHERE LOWER(username) = LOWER($1)', [ADMIN_USER]);
+    if (adminExists.rows.length === 0) {
+      const hash = await bcrypt.hash(ADMIN_PASS, 10);
+      await pool.query('INSERT INTO admins (username, password_hash, role) VALUES ($1, $2, $3)', [ADMIN_USER, hash, 'master']);
+      console.log(`✅ Admin master criado: ${ADMIN_USER}`);
+    }
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🪐 Astro rodando na porta ${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Falha ao conectar ao PostgreSQL:', err.message);
+    process.exit(1);
   }
-  app.listen(PORT, '0.0.0.0', () => console.log(`🪐 Astro rodando na porta ${PORT}`));
 })();
