@@ -4,9 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Astro — Painel de Controle</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -18,6 +17,7 @@
       --danger: #ef4444;
       --success: #10b981;
       --warning: #f59e0b;
+      --info: #3b82f6;
       --radius: 14px;
       --radius-sm: 8px;
       --transition: 0.2s ease;
@@ -41,6 +41,8 @@
       display: flex;
       flex-direction: column;
       gap: 2rem;
+      transition: transform var(--transition);
+      z-index: 10;
     }
     .sidebar-logo {
       font-size: 1.5rem;
@@ -83,6 +85,21 @@
     }
     .logout-btn:hover { background: rgba(239,68,68,0.1); }
 
+    /* Hamburger */
+    .hamburger {
+      display: none;
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+
     /* Main */
     .main { flex: 1; padding: 2rem; overflow-y: auto; }
     .tab { display: none; }
@@ -96,10 +113,19 @@
     }
     .header h1 { font-size: 1.8rem; font-weight: 700; }
 
+    /* Skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, #1a1a1a 25%, #222 50%, #1a1a1a 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: var(--radius-sm);
+    }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
     /* Stats */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 1rem;
       margin-bottom: 2rem;
     }
@@ -107,12 +133,12 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 1.5rem;
+      padding: 1.2rem;
       transition: transform var(--transition), box-shadow var(--transition);
     }
     .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
-    .stat-label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
-    .stat-value { font-size: 2rem; font-weight: 700; }
+    .stat-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; }
 
     /* Table */
     .table-wrapper {
@@ -134,7 +160,30 @@
     td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); }
     tr:last-child td { border-bottom: none; }
 
-    /* Buttons */
+    .badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-online { background: rgba(16,185,129,0.15); color: var(--success); }
+    .badge-offline { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .badge-maintenance { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .badge-development { background: rgba(59,130,246,0.15); color: var(--info); }
+
+    .search-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 1rem;
+      color: #fff;
+      width: 250px;
+      font-size: 0.9rem;
+    }
+    .search-box::placeholder { color: var(--text-secondary); }
+    .search-box:focus { outline: none; border-color: var(--primary); }
+
     .btn {
       padding: 0.6rem 1.2rem;
       border: none;
@@ -179,7 +228,7 @@
     }
     .modal-box h2 { margin-bottom: 1.5rem; }
     label { display: block; margin-bottom: 0.4rem; color: var(--text-secondary); font-size: 0.9rem; }
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       padding: 0.7rem;
       margin-bottom: 1rem;
@@ -191,70 +240,75 @@
       font-size: 0.9rem;
     }
     textarea { height: 200px; resize: vertical; font-family: 'Fira Code', monospace; }
-    input:focus, textarea:focus { outline: none; border-color: var(--primary); }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
     .modal-actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; }
 
-    /* Status dot */
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
-      color: var(--text-secondary);
+    .toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 200; }
+    .toast {
+      background: var(--surface); border: 1px solid var(--border); color: #fff;
+      padding: 0.8rem 1.2rem; border-radius: var(--radius-sm); font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5); animation: slideIn 0.3s ease;
+      display: flex; align-items: center; gap: 0.5rem;
     }
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--success);
-    }
-    .dot.error { background: var(--danger); }
-    .dot.loading { background: var(--warning); animation: pulse 1s infinite; }
-    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+    .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem; }
+
+    @media (max-width: 768px) {
+      .sidebar { position: fixed; left: -280px; height: 100vh; }
+      .sidebar.open { left: 0; transform: none; }
+      .hamburger { display: block; }
+      .main { padding: 1rem; }
+    }
   </style>
 </head>
 <body>
+  <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><line x1="2" y1="12" x2="22" y2="12"/>
-      </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
       Astro
     </div>
     <nav class="sidebar-nav">
-      <button class="active" data-tab="dashboard">📊 Dashboard</button>
-      <button data-tab="scripts">📜 Scripts</button>
+      <button class="active" data-tab="dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </button>
+      <button data-tab="scripts">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Scripts
+      </button>
+      <button data-tab="security">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Segurança
+      </button>
     </nav>
-    <div class="status-pill">
-      <span class="dot" id="statusDot"></span>
-      <span id="statusText">conectando</span>
-    </div>
-    <button class="logout-btn" onclick="window.location.href='/api/auth/logout'">🚪 Sair</button>
+    <button class="logout-btn" onclick="window.location.href='/api/auth/logout'">Sair</button>
   </aside>
 
   <main class="main">
-    <!-- Dashboard -->
     <div id="tab-dashboard" class="tab active">
-      <div class="header">
-        <h1>Dashboard</h1>
-      </div>
+      <div class="header"><h1>Dashboard</h1></div>
       <div class="stats-grid" id="statsCards">
-        <div class="stat-card"><div class="stat-label">Total Scripts</div><div class="stat-value">—</div></div>
-        <div class="stat-card"><div class="stat-label">Online</div><div class="stat-value">—</div></div>
-        <div class="stat-card"><div class="stat-label">Offline</div><div class="stat-value">—</div></div>
-        <div class="stat-card"><div class="stat-label">Execuções</div><div class="stat-value">—</div></div>
+        <div class="stat-card"><div class="stat-label">Carregando...</div><div class="stat-value"><div class="skeleton" style="height:2rem;width:80%;"></div></div></div>
       </div>
+      <div class="chart-container"><canvas id="dailyChart" height="100"></canvas></div>
+      <div class="chart-container"><h3>Execuções por Hora</h3><canvas id="hourlyChart" height="80"></canvas></div>
+      <div class="chart-container" id="popularScripts"></div>
     </div>
 
-    <!-- Scripts -->
     <div id="tab-scripts" class="tab">
       <div class="header">
         <h1>Scripts</h1>
-        <div>
-          <button class="btn" onclick="exportData()">📤 Exportar</button>
-          <button class="btn" onclick="document.getElementById('importFile').click()">📥 Importar</button>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <input type="text" class="search-box" id="searchInput" placeholder="Buscar scripts..." oninput="filterScripts()">
+          <button class="btn" onclick="exportData()">Exportar</button>
+          <button class="btn" onclick="document.getElementById('importFile').click()">Importar</button>
           <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
           <button class="btn btn-primary" onclick="openCreateModal()">+ Novo Script</button>
         </div>
@@ -265,19 +319,40 @@
           <tbody id="scriptsTable"></tbody>
         </table>
       </div>
-      <div class="empty-state" id="emptyScripts" style="display:none;">Nenhum script criado ainda.</div>
+    </div>
+
+    <div id="tab-security" class="tab">
+      <div class="header"><h1>Segurança</h1></div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>IP Bloqueado</th><th>Ações</th></tr></thead>
+          <tbody id="blockedIPsTable"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:1rem;">
+        <input type="text" id="newIP" placeholder="192.168.1.1" style="width:200px; display:inline; margin-right:0.5rem;">
+        <button class="btn btn-primary" onclick="blockIP()">Bloquear IP</button>
+      </div>
     </div>
   </main>
 
-  <!-- Modal Criar/Editar -->
   <div id="scriptModal" class="modal">
     <div class="modal-box">
       <h2 id="modalTitle">Novo Script</h2>
       <input type="hidden" id="scriptId">
-      <label>Nome</label>
-      <input type="text" id="scriptName" placeholder="Nome do script">
-      <label>Código Lua</label>
-      <textarea id="scriptContent" placeholder="print('Hello World')"></textarea>
+      <label>Nome</label><input type="text" id="scriptName" placeholder="Nome do script">
+      <label>Status</label>
+      <select id="scriptStatus">
+        <option value="online">Online</option>
+        <option value="offline">Offline</option>
+        <option value="maintenance">Manutenção</option>
+        <option value="development">Desenvolvimento</option>
+      </select>
+      <label>Código Lua</label><textarea id="scriptContent" placeholder="print('Hello World')"></textarea>
+      <div id="changelogFields" style="display:none;">
+        <label>Título do Changelog</label><input type="text" id="changelogTitle" placeholder="Nova atualização">
+        <label>Descrição</label><textarea id="changelogDesc" rows="3" placeholder="O que mudou..."></textarea>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-danger" onclick="closeModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="saveScript()">Salvar</button>
@@ -285,76 +360,100 @@
     </div>
   </div>
 
+  <div class="toast-container" id="toastContainer"></div>
+
   <script>
     const ADMIN_PATH = '/painel';
+    let allScripts = [];
+    let dailyChart, hourlyChart;
 
-    // Funções auxiliares
-    function escapeHtml(s) {
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    function showToast(msg, type='success') {
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div'); t.className = `toast ${type}`; t.textContent = msg;
+      c.appendChild(t); setTimeout(() => t.remove(), 3000);
     }
 
-    function setStatus(ok) {
-      const dot = document.getElementById('statusDot');
-      const text = document.getElementById('statusText');
-      dot.className = 'dot ' + (ok ? '' : 'error');
-      text.textContent = ok ? 'online' : 'offline';
-    }
+    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-    // API via fetch
-    async function api(url, options = {}) {
-      const res = await fetch(url, { credentials: 'include', ...options });
+    async function api(url, options={}) {
+      const res = await fetch(url, { credentials:'include', ...options });
       if (res.status === 401) { window.location.href = ADMIN_PATH; throw new Error('Unauthorized'); }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(err.error || 'Erro na requisição');
-      }
+      if (!res.ok) { const err = await res.json().catch(()=>({error:'Erro desconhecido'})); throw new Error(err.error); }
       return res.json();
     }
 
-    // Carregar dashboard
+    // Dashboard
     async function loadDashboard() {
       try {
         const stats = await api('/api/stats');
-        setStatus(true);
         document.getElementById('statsCards').innerHTML = `
-          <div class="stat-card"><div class="stat-label">Total Scripts</div><div class="stat-value">${stats.totalScripts||0}</div></div>
-          <div class="stat-card"><div class="stat-label">Online</div><div class="stat-value" style="color:var(--success)">${stats.onlineScripts||0}</div></div>
-          <div class="stat-card"><div class="stat-label">Offline</div><div class="stat-value" style="color:var(--danger)">${stats.offlineScripts||0}</div></div>
-          <div class="stat-card"><div class="stat-label">Execuções</div><div class="stat-value">${stats.totalExecutions||0}</div></div>
+          <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${stats.totalScripts}</div></div>
+          <div class="stat-card"><div class="stat-label">Online</div><div class="stat-value" style="color:var(--success)">${stats.onlineScripts}</div></div>
+          <div class="stat-card"><div class="stat-label">Offline</div><div class="stat-value" style="color:var(--danger)">${stats.offlineScripts}</div></div>
+          <div class="stat-card"><div class="stat-label">Execuções</div><div class="stat-value">${stats.totalExecutions}</div></div>
         `;
-      } catch (e) {
-        setStatus(false);
-      }
+        // Gráfico diário
+        const ctx1 = document.getElementById('dailyChart').getContext('2d');
+        if (dailyChart) dailyChart.destroy();
+        dailyChart = new Chart(ctx1, {
+          type:'bar',
+          data:{
+            labels: stats.daily.map(d => d.date.slice(5)),
+            datasets:[{ label:'Execuções', data: stats.daily.map(d => d.count), backgroundColor:'#6366f1' }]
+          },
+          options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ color:'#a0a0a0' } }, x:{ ticks:{ color:'#a0a0a0' } } } }
+        });
+        // Gráfico horário
+        const ctx2 = document.getElementById('hourlyChart').getContext('2d');
+        if (hourlyChart) hourlyChart.destroy();
+        hourlyChart = new Chart(ctx2, {
+          type:'line',
+          data:{
+            labels: stats.hourly.map(h => h.hour + 'h'),
+            datasets:[{ label:'Execuções', data: stats.hourly.map(h => h.count), borderColor:'#10b981', tension:0.3 }]
+          },
+          options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ color:'#a0a0a0' } }, x:{ ticks:{ color:'#a0a0a0' } } } }
+        });
+        // Scripts populares
+        const popDiv = document.getElementById('popularScripts');
+        popDiv.innerHTML = '<h3>Scripts Mais Populares</h3>' + stats.popular.map(s => `
+          <div style="display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid var(--border);">
+            <span>${escapeHtml(s.name)}</span>
+            <span style="color:var(--success);">${s.executions||0} execuções</span>
+          </div>
+        `).join('');
+      } catch(e) { showToast('Erro ao carregar dashboard', 'error'); }
     }
 
-    // Carregar scripts
+    // Scripts
     async function loadScripts() {
       try {
-        const scripts = await api('/api/scripts');
-        setStatus(true);
-        const tbody = document.getElementById('scriptsTable');
-        const empty = document.getElementById('emptyScripts');
-        if (!scripts.length) {
-          tbody.innerHTML = '';
-          empty.style.display = 'block';
-          return;
-        }
-        empty.style.display = 'none';
-        tbody.innerHTML = scripts.map(s => `
-          <tr>
-            <td><strong>${escapeHtml(s.name)}</strong></td>
-            <td>${s.executions||0}</td>
-            <td><span style="color:${s.status==='online'?'var(--success)':'var(--danger)'}">${s.status||'—'}</span></td>
-            <td>
-              <button class="btn btn-sm" onclick="editScript('${s.id}')">✏️</button>
-              <button class="btn btn-sm" onclick="copyLoader('${s.short_id}','${s.token}')">📋</button>
-              <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')">🗑️</button>
-            </td>
-          </tr>
-        `).join('');
-      } catch (e) {
-        setStatus(false);
-      }
+        allScripts = await api('/api/scripts');
+        renderScripts(allScripts);
+      } catch(e) { showToast('Erro ao carregar scripts', 'error'); }
+    }
+
+    function renderScripts(scripts) {
+      const tbody = document.getElementById('scriptsTable');
+      if (!scripts.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Nenhum script.</td></tr>'; return; }
+      tbody.innerHTML = scripts.map(s => `
+        <tr>
+          <td><strong>${escapeHtml(s.name)}</strong></td>
+          <td>${s.executions||0}</td>
+          <td><span class="badge badge-${s.status||'online'}">${s.status}</span></td>
+          <td>
+            <button class="btn btn-sm" onclick="editScript('${s.id}')">✏️</button>
+            <button class="btn btn-sm" onclick="duplicateScript('${s.id}')">📄</button>
+            <button class="btn btn-sm" onclick="copyLoader('${s.short_id}','${s.token}')">📋</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')">🗑️</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterScripts() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      renderScripts(allScripts.filter(s => s.name.toLowerCase().includes(q)));
     }
 
     // Modal
@@ -362,13 +461,13 @@
       document.getElementById('modalTitle').textContent = 'Novo Script';
       document.getElementById('scriptId').value = '';
       document.getElementById('scriptName').value = '';
+      document.getElementById('scriptStatus').value = 'online';
       document.getElementById('scriptContent').value = '';
+      document.getElementById('changelogFields').style.display = 'none';
       document.getElementById('scriptModal').classList.add('active');
     }
 
-    function closeModal() {
-      document.getElementById('scriptModal').classList.remove('active');
-    }
+    function closeModal() { document.getElementById('scriptModal').classList.remove('active'); }
 
     async function editScript(id) {
       try {
@@ -376,83 +475,95 @@
         document.getElementById('modalTitle').textContent = 'Editar Script';
         document.getElementById('scriptId').value = script.id;
         document.getElementById('scriptName').value = script.name;
+        document.getElementById('scriptStatus').value = script.status || 'online';
         document.getElementById('scriptContent').value = script.content;
+        document.getElementById('changelogFields').style.display = 'block';
         document.getElementById('scriptModal').classList.add('active');
-      } catch (e) {
-        alert('Erro ao carregar script');
-      }
+      } catch(e) { showToast('Erro ao carregar script', 'error'); }
     }
 
     async function saveScript() {
       const id = document.getElementById('scriptId').value;
       const name = document.getElementById('scriptName').value.trim();
+      const status = document.getElementById('scriptStatus').value;
       const content = document.getElementById('scriptContent').value;
-      if (!name || !content) return alert('Preencha todos os campos');
-
+      if (!name || !content) return showToast('Preencha todos os campos', 'error');
       const method = id ? 'PUT' : 'POST';
       const url = id ? '/api/scripts/' + id : '/api/scripts';
-
       try {
-        await api(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, content })
-        });
+        await api(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, content, status }) });
+        // Se for edição e tiver changelog, envia
+        if (id && document.getElementById('changelogFields').style.display !== 'none') {
+          const changelog = {
+            title: document.getElementById('changelogTitle').value.trim(),
+            description: document.getElementById('changelogDesc').value.trim()
+          };
+          if (changelog.title || changelog.description) {
+            await api(`/api/scripts/${id}/changelog`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(changelog) });
+          }
+        }
         closeModal();
         loadScripts();
-        loadDashboard();
-      } catch (e) {
-        alert('Erro ao salvar: ' + e.message);
-      }
+        showToast(id ? 'Script atualizado!' : 'Script criado!', 'success');
+      } catch(e) { showToast('Erro ao salvar', 'error'); }
     }
 
     async function deleteScript(id) {
-      if (!confirm('Tem certeza que deseja excluir este script?')) return;
-      try {
-        await api('/api/scripts/' + id, { method: 'DELETE' });
-        loadScripts();
-        loadDashboard();
-      } catch (e) {
-        alert('Erro ao excluir script');
-      }
+      if (!confirm('Excluir este script?')) return;
+      try { await api('/api/scripts/' + id, { method:'DELETE' }); loadScripts(); showToast('Excluído.', 'success'); }
+      catch(e) { showToast('Erro ao excluir', 'error'); }
+    }
+
+    async function duplicateScript(id) {
+      try { await api(`/api/scripts/${id}/duplicate`, { method:'POST' }); loadScripts(); showToast('Duplicado!', 'success'); }
+      catch(e) { showToast('Erro ao duplicar', 'error'); }
     }
 
     function copyLoader(shortId, token) {
-      const loader = `loadstring(game:HttpGet("${location.origin}/api/load/${shortId}/${token}"))()`;
-      navigator.clipboard.writeText(loader).then(() => alert('Loader copiado!'));
+      navigator.clipboard.writeText(`loadstring(game:HttpGet("${location.origin}/api/load/${shortId}/${token}"))()`).then(() => showToast('Loader copiado!', 'success'));
     }
 
     async function exportData() {
       try {
         const data = await api('/api/export');
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
+        const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
         a.download = `astro_backup_${new Date().toISOString().slice(0,10)}.json`;
         a.click();
-      } catch (e) {
-        alert('Erro ao exportar');
-      }
+      } catch(e) { showToast('Erro ao exportar', 'error'); }
     }
 
     async function importData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+      const file = event.target.files[0]; if (!file) return;
       try {
         const text = await file.text();
         const data = JSON.parse(text);
-        await api('/api/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...data, confirmation: 'IMPORTAR' })
-        });
-        loadScripts();
-        loadDashboard();
-        alert('Importação concluída!');
-      } catch (e) {
-        alert('Erro ao importar: ' + e.message);
-      }
+        await api('/api/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({...data, confirmation:'IMPORTAR'}) });
+        loadScripts(); showToast('Importado!', 'success');
+      } catch(e) { showToast('Erro ao importar', 'error'); }
       event.target.value = '';
+    }
+
+    // Segurança (IPs)
+    async function loadBlockedIPs() {
+      try {
+        const ips = await api('/api/admin/blocked-ips');
+        document.getElementById('blockedIPsTable').innerHTML = ips.map(ip => `
+          <tr><td>${ip}</td><td><button class="btn btn-sm btn-danger" onclick="unblockIP('${ip}')">Remover</button></td></tr>
+        `).join('');
+      } catch(e) {}
+    }
+
+    async function blockIP() {
+      const ip = document.getElementById('newIP').value.trim();
+      if (!ip) return showToast('Digite um IP', 'error');
+      try { await api('/api/admin/block-ip', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ip }) }); loadBlockedIPs(); showToast('IP bloqueado!', 'success'); }
+      catch(e) { showToast('Erro ao bloquear IP', 'error'); }
+    }
+
+    async function unblockIP(ip) {
+      try { await api(`/api/admin/block-ip/${ip}`, { method:'DELETE' }); loadBlockedIPs(); showToast('IP removido!', 'success'); }
+      catch(e) { showToast('Erro ao remover IP', 'error'); }
     }
 
     // Navegação
@@ -464,18 +575,17 @@
         document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
         if (btn.dataset.tab === 'dashboard') loadDashboard();
         else if (btn.dataset.tab === 'scripts') loadScripts();
+        else if (btn.dataset.tab === 'security') loadBlockedIPs();
+        // Fecha sidebar em mobile
+        document.querySelector('.sidebar').classList.remove('open');
       });
     });
 
-    // Inicial
+    document.getElementById('scriptModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
     (async () => {
-      try {
-        await api('/api/auth/me');
-        loadDashboard();
-        loadScripts(); // já carrega scripts ao iniciar
-      } catch {
-        window.location.href = ADMIN_PATH;
-      }
+      try { await api('/api/auth/me'); loadDashboard(); }
+      catch { window.location.href = ADMIN_PATH; }
     })();
   </script>
 </body>
