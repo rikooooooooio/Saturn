@@ -1,635 +1,99 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Astro — Painel</title>
-<style>
-  :root{
-    --bg: #0a0a0a;
-    --surface: #121212;
-    --card: #161616;
-    --card-hover: #1c1c1c;
-    --border: #262626;
-    --border-soft: #1f1f1f;
-    --text: #f2f2f2;
-    --text-dim: #8a8a8a;
-    --text-faint: #555555;
-    --accent: #e8e8e8;
-    --ok: #4ade80;
-    --warn: #fbbf24;
-    --err: #f87171;
-    --radius: 14px;
-    --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    -webkit-font-smoothing: antialiased;
-  }
-
-  body {
-    background-image:
-      radial-gradient(circle at 20% 0%, rgba(255,255,255,0.035), transparent 45%),
-      radial-gradient(circle at 80% 100%, rgba(255,255,255,0.02), transparent 50%);
-    min-height: 100vh;
-    padding: 2.5rem 1.5rem 4rem;
-  }
-
-  .wrap {
-    max-width: 980px;
-    margin: 0 auto;
-  }
-
-  /* ---------- Topbar ---------- */
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 2.75rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-soft);
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-
-  .brand-ring {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 2px solid var(--accent);
-    position: relative;
-    flex-shrink: 0;
-  }
-  .brand-ring::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: -6px;
-    right: -6px;
-    height: 8px;
-    border: 1.5px solid var(--text-dim);
-    border-radius: 50%;
-    transform: translateY(-50%) rotate(-8deg);
-  }
-
-  .brand-name {
-    font-family: var(--sans);
-    font-weight: 700;
-    font-size: 1.15rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  .brand-name span { color: var(--text-dim); font-weight: 500; }
-
-  .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    padding: 0.4rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--surface);
-  }
-
-  .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-faint);
-    flex-shrink: 0;
-  }
-  .dot.ok { background: var(--ok); box-shadow: 0 0 0 0 rgba(74,222,128,0.6); animation: pulse 1.8s infinite; }
-  .dot.err { background: var(--err); }
-  .dot.loading { background: var(--warn); animation: pulse 1s infinite; }
-
-  @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(74,222,128,0.45); }
-    70%  { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
-    100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
-  }
-
-  /* ---------- Sections ---------- */
-  section { margin-bottom: 3rem; }
-
-  .section-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 1.1rem;
-  }
-
-  .section-head h2 {
-    font-size: 0.95rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .section-head .count {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    color: var(--text-faint);
-  }
-
-  /* ---------- Stat cards ---------- */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.85rem;
-  }
-
-  .stat-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.1rem 1.2rem;
-    transition: border-color 0.15s ease, transform 0.15s ease;
-  }
-  .stat-card:hover {
-    border-color: #3a3a3a;
-    transform: translateY(-1px);
-  }
-
-  .stat-label {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-faint);
-    margin-bottom: 0.45rem;
-  }
-
-  .stat-value {
-    font-family: var(--sans);
-    font-size: 1.55rem;
-    font-weight: 700;
-    color: var(--text);
-    line-height: 1.1;
-    word-break: break-word;
-  }
-
-  /* ---------- Scripts list ---------- */
-  .scripts-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-  }
-
-  .script-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 0.85rem 1.1rem;
-    transition: border-color 0.15s ease, background 0.15s ease;
-  }
-  .script-row:hover {
-    background: var(--card-hover);
-    border-color: #3a3a3a;
-  }
-
-  .script-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    color: var(--text-dim);
-    flex-shrink: 0;
-  }
-
-  .script-main {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .script-name {
-    font-family: var(--sans);
-    font-weight: 600;
-    font-size: 0.92rem;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .script-meta {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text-faint);
-    margin-top: 0.15rem;
-    display: flex;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-  }
-
-  .badge {
-    font-family: var(--mono);
-    font-size: 0.66rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 0.22rem 0.55rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    background: var(--surface);
-    flex-shrink: 0;
-  }
-
-  /* ---------- Loading skeleton ---------- */
-  .skeleton-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.85rem;
-  }
-  .skeleton {
-    height: 78px;
-    border-radius: var(--radius);
-    background: linear-gradient(100deg, var(--card) 30%, #1f1f1f 50%, var(--card) 70%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
-    border: 1px solid var(--border-soft);
-  }
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-  /* ---------- Empty / error states ---------- */
-  .state-box {
-    border: 1px dashed var(--border);
-    border-radius: var(--radius);
-    padding: 1.6rem;
-    text-align: center;
-    color: var(--text-faint);
-    font-family: var(--mono);
-    font-size: 0.82rem;
-    background: var(--surface);
-  }
-  .state-box.error {
-    border-color: rgba(248,113,113,0.3);
-    color: var(--err);
-    background: rgba(248,113,113,0.04);
-  }
-  .state-box.error .retry {
-    display: inline-block;
-    margin-top: 0.8rem;
-    font-family: var(--sans);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text);
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.45rem 0.9rem;
-    cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
-  }
-  .state-box.error .retry:hover {
-    background: var(--card-hover);
-    border-color: #4a4a4a;
-  }
-
-  /* ---------- Raw fallback ---------- */
-  pre.raw {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1rem;
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    white-space: pre-wrap;
-    overflow-x: auto;
-    margin: 0;
-  }
-
-  footer {
-    text-align: center;
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--text-faint);
-    margin-top: 2.5rem;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dot.ok, .dot.loading, .skeleton { animation: none; }
-  }
-
-  .retry:focus-visible, a:focus-visible {
-    outline: 2px solid var(--text);
-    outline-offset: 2px;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Astro — Scripts</title>
+  <style>
+    body {
+      background: #0a0a0a;
+      color: #fff;
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    h1 { margin-bottom: 1rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #111;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th {
+      background: #1a1a1a;
+      padding: 0.8rem;
+      text-align: left;
+      color: #aaa;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+    td {
+      padding: 0.8rem;
+      border-bottom: 1px solid #1f1f1f;
+    }
+    .loader {
+      color: #aaa;
+      text-align: center;
+      padding: 2rem;
+    }
+    .error {
+      color: #f44;
+      text-align: center;
+      padding: 2rem;
+    }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-
-    <div class="topbar">
-      <div class="brand">
-        <div class="brand-ring"></div>
-        <div class="brand-name">ASTRO <span>/ painel</span></div>
-      </div>
-      <div class="status-pill">
-        <span class="dot loading" id="statusDot"></span>
-        <span id="statusText">conectando…</span>
-      </div>
-    </div>
-
-    <section>
-      <div class="section-head">
-        <h2>📊 Estatísticas</h2>
-        <span class="count" id="statsCount"></span>
-      </div>
-      <div id="statsContainer">
-        <div class="skeleton-grid">
-          <div class="skeleton"></div>
-          <div class="skeleton"></div>
-          <div class="skeleton"></div>
-          <div class="skeleton"></div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h2>📜 Scripts</h2>
-        <span class="count" id="scriptsCount"></span>
-      </div>
-      <div id="scriptsContainer">
-        <div class="scripts-list">
-          <div class="skeleton" style="height:58px"></div>
-          <div class="skeleton" style="height:58px"></div>
-          <div class="skeleton" style="height:58px"></div>
-        </div>
-      </div>
-    </section>
-
-    <footer>astro panel · atualizado em tempo real</footer>
+  <h1>📜 Scripts</h1>
+  <div id="scriptsContainer">
+    <div class="loader">Carregando scripts...</div>
   </div>
 
-<script>
-(function () {
-  "use strict";
-
-  var anyOk = false;
-  var anyErr = false;
-
-  function setStatus(state, text) {
-    var dot = document.getElementById('statusDot');
-    var label = document.getElementById('statusText');
-    dot.className = 'dot ' + state;
-    label.textContent = text;
-  }
-
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  function formatLabel(key) {
-    return key
-      .replace(/_/g, ' ')
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
-  }
-
-  function formatValue(val) {
-    if (val === null || val === undefined) return '—';
-    if (typeof val === 'boolean') return val ? 'sim' : 'não';
-    if (typeof val === 'number') return val.toLocaleString('pt-BR');
-    return String(val);
-  }
-
-  function formatDate(val) {
-    var d = new Date(val);
-    if (isNaN(d.getTime())) return null;
-    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-  }
-
-  function renderErrorBox(containerId, message, retryFn) {
-    var el = document.getElementById(containerId);
-    el.innerHTML =
-      '<div class="state-box error">' +
-        escapeHtml(message) +
-        '<br><button class="retry" type="button">Tentar novamente</button>' +
-      '</div>';
-    var btn = el.querySelector('.retry');
-    if (btn) btn.addEventListener('click', retryFn);
-  }
-
-  function renderEmptyBox(containerId, message) {
-    document.getElementById(containerId).innerHTML =
-      '<div class="state-box">' + escapeHtml(message) + '</div>';
-  }
-
-  function renderRaw(containerId, data) {
-    document.getElementById(containerId).innerHTML =
-      '<pre class="raw">' + escapeHtml(JSON.stringify(data, null, 2)) + '</pre>';
-  }
-
-  /* ---------- Stats ---------- */
-  function renderStats(data) {
-    var countEl = document.getElementById('statsCount');
-
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      var keys = Object.keys(data);
-      if (keys.length === 0) {
-        renderEmptyBox('statsContainer', 'Nenhuma estatística disponível.');
-        countEl.textContent = '';
-        return;
-      }
-
-      var html = '<div class="stats-grid">';
-      keys.forEach(function (key) {
-        var val = data[key];
-        var display;
-        if (typeof val === 'object' && val !== null) {
-          display = escapeHtml(JSON.stringify(val));
-        } else {
-          display = escapeHtml(formatValue(val));
-        }
-        html +=
-          '<div class="stat-card">' +
-            '<div class="stat-label">' + escapeHtml(formatLabel(key)) + '</div>' +
-            '<div class="stat-value">' + display + '</div>' +
-          '</div>';
-      });
-      html += '</div>';
-
-      document.getElementById('statsContainer').innerHTML = html;
-      countEl.textContent = keys.length + ' campos';
-    } else {
-      renderRaw('statsContainer', data);
-      countEl.textContent = '';
-    }
-  }
-
-  /* ---------- Scripts ---------- */
-  function renderScripts(data) {
-    var countEl = document.getElementById('scriptsCount');
-    var list = Array.isArray(data) ? data : (data && Array.isArray(data.scripts) ? data.scripts : null);
-
-    if (!list) {
-      renderRaw('scriptsContainer', data);
-      countEl.textContent = '';
-      return;
-    }
-
-    if (list.length === 0) {
-      renderEmptyBox('scriptsContainer', 'Nenhum script encontrado ainda.');
-      countEl.textContent = '0 scripts';
-      return;
-    }
-
-    var html = '<div class="scripts-list">';
-    list.forEach(function (item) {
-      if (typeof item !== 'object' || item === null) {
-        html +=
-          '<div class="script-row">' +
-            '<div class="script-icon">＊</div>' +
-            '<div class="script-main"><div class="script-name">' + escapeHtml(String(item)) + '</div></div>' +
-          '</div>';
-        return;
-      }
-
-      var name = item.name || item.title || item.filename || item.id || 'sem nome';
-      var status = item.status || '';
-      var badge = status ? '<span class="badge">' + escapeHtml(String(status)) + '</span>' : '';
-
-      var dateRaw = item.updated_at || item.created_at || item.date;
-      var dateText = dateRaw ? formatDate(dateRaw) : null;
-
-      var meta = [];
-      if (typeof item.executions === 'number') meta.push(item.executions + ' execuções');
-      if (dateText) meta.push(dateText);
-
-      html +=
-        '<div class="script-row">' +
-          '<div class="script-icon">' + escapeHtml(String(name).slice(0, 2).toUpperCase()) + '</div>' +
-          '<div class="script-main">' +
-            '<div class="script-name">' + escapeHtml(String(name)) + '</div>' +
-            (meta.length ? '<div class="script-meta">' + meta.map(escapeHtml).join(' · ') + '</div>' : '') +
-          '</div>' +
-          badge +
-        '</div>';
-    });
-    html += '</div>';
-
-    document.getElementById('scriptsContainer').innerHTML = html;
-    countEl.textContent = list.length + ' script' + (list.length === 1 ? '' : 's');
-  }
-
-  /* ---------- Fetch ---------- */
-  function loadJSON(url, onSuccess, onError) {
+  <script>
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
+    xhr.open('GET', '/api/scripts', true);
     xhr.withCredentials = true;
     xhr.timeout = 15000;
 
-    xhr.onload = function () {
+    xhr.onload = function() {
+      var container = document.getElementById('scriptsContainer');
       if (xhr.status < 200 || xhr.status >= 300) {
-        var snippet = (xhr.responseText || '').slice(0, 200);
-        onError('Erro ' + xhr.status + ' (' + (xhr.statusText || 'sem status') + ') em ' + url +
-          (snippet ? ' — resposta: ' + snippet : ''));
+        container.innerHTML = '<div class="error">Erro ' + xhr.status + ' ao carregar scripts.</div>';
         return;
       }
       try {
-        var data = JSON.parse(xhr.responseText);
-        onSuccess(data);
+        var scripts = JSON.parse(xhr.responseText);
+        if (!Array.isArray(scripts) || scripts.length === 0) {
+          container.innerHTML = '<div class="loader">Nenhum script criado ainda.</div>';
+          return;
+        }
+        var html = '<table><thead><tr><th>Nome</th><th>Execuções</th><th>Status</th></tr></thead><tbody>';
+        scripts.forEach(function(s) {
+          html += '<tr>' +
+            '<td>' + escapeHtml(s.name || 'sem nome') + '</td>' +
+            '<td>' + (s.executions || 0) + '</td>' +
+            '<td>' + escapeHtml(s.status || '—') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
       } catch (e) {
-        onError('JSON inválido em ' + url + ' — resposta: ' + (xhr.responseText || '').slice(0, 200));
+        container.innerHTML = '<div class="error">Erro ao interpretar resposta do servidor.</div>';
       }
     };
 
-    xhr.onerror = function () {
-      onError('Falha de rede ao acessar ' + url + ' — servidor fora do ar ou erro de CORS.');
+    xhr.onerror = function() {
+      document.getElementById('scriptsContainer').innerHTML = '<div class="error">Falha de rede ao carregar scripts.</div>';
     };
 
-    xhr.ontimeout = function () {
-      onError('Tempo de conexão esgotado em ' + url + ' (>15s).');
+    xhr.ontimeout = function() {
+      document.getElementById('scriptsContainer').innerHTML = '<div class="error">Tempo esgotado ao carregar scripts.</div>';
     };
 
     xhr.send();
-  }
 
-  function updateGlobalStatus(ok) {
-    if (ok) anyOk = true; else anyErr = true;
-    if (anyErr && !anyOk) {
-      setStatus('err', 'offline');
-    } else if (anyOk && anyErr) {
-      setStatus('warn', 'parcial');
-    } else if (anyOk) {
-      setStatus('ok', 'online');
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-  }
-
-  function loadStats() {
-    document.getElementById('statsContainer').innerHTML =
-      '<div class="skeleton-grid">' +
-        '<div class="skeleton"></div><div class="skeleton"></div>' +
-        '<div class="skeleton"></div><div class="skeleton"></div>' +
-      '</div>';
-
-    loadJSON('/api/stats', function (data) {
-      updateGlobalStatus(true);
-      renderStats(data);
-    }, function (msg) {
-      updateGlobalStatus(false);
-      renderErrorBox('statsContainer', msg, loadStats);
-    });
-  }
-
-  function loadScripts() {
-    document.getElementById('scriptsContainer').innerHTML =
-      '<div class="scripts-list">' +
-        '<div class="skeleton" style="height:58px"></div>' +
-        '<div class="skeleton" style="height:58px"></div>' +
-        '<div class="skeleton" style="height:58px"></div>' +
-      '</div>';
-
-    loadJSON('/api/scripts', function (data) {
-      updateGlobalStatus(true);
-      renderScripts(data);
-    }, function (msg) {
-      updateGlobalStatus(false);
-      renderErrorBox('scriptsContainer', msg, loadScripts);
-    });
-  }
-
-  loadStats();
-  loadScripts();
-})();
-</script>
+  </script>
 </body>
 </html>
