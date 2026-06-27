@@ -2,101 +2,52 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Astro — Scripts</title>
+  <title>Astro — Diagnóstico XHR</title>
   <style>
-    body {
-      background: #0a0a0a;
-      color: #fff;
-      font-family: sans-serif;
-      padding: 2rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #111;
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    th {
-      background: #1a1a1a;
-      padding: 0.8rem;
-      text-align: left;
-      color: #aaa;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-    }
-    td {
-      padding: 0.8rem;
-      border-bottom: 1px solid #1f1f1f;
-    }
-    .empty {
-      text-align: center;
-      color: #aaa;
-      padding: 2rem;
-    }
-    .error {
-      text-align: center;
-      color: #f44;
-      padding: 2rem;
-    }
+    body { background: #0a0a0a; color: #fff; font-family: monospace; padding: 2rem; }
+    .log { margin-bottom: 0.5rem; }
+    .ok { color: #4ade80; }
+    .err { color: #f87171; }
+    .info { color: #a0a0a0; }
   </style>
 </head>
 <body>
-  <h1>📜 Scripts</h1>
-  <div id="scriptsContainer">Carregando scripts...</div>
+  <h1>🔍 Diagnóstico da Requisição</h1>
+  <div id="logs"></div>
 
   <script>
+    var logs = document.getElementById('logs');
+    function log(msg, cls) {
+      var div = document.createElement('div');
+      div.className = 'log ' + (cls || 'info');
+      div.textContent = msg;
+      logs.appendChild(div);
+    }
+
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/scripts', true);
-    xhr.withCredentials = true;
+    log('Iniciando XHR para /api/scripts');
 
-    xhr.onload = function() {
-      var container = document.getElementById('scriptsContainer');
-
-      if (xhr.status === 401) {
-        window.location.href = '/painel';
-        return;
-      }
-
-      if (xhr.status !== 200) {
-        container.innerHTML = '<div class="error">Erro ' + xhr.status + ' ao carregar scripts.</div>';
-        return;
-      }
-
-      try {
-        var scripts = JSON.parse(xhr.responseText);
-
-        if (!Array.isArray(scripts) || scripts.length === 0) {
-          container.innerHTML = '<div class="empty">Nenhum script criado ainda.</div>';
-          return;
-        }
-
-        var html = '<table><thead><tr><th>Nome</th><th>Execuções</th><th>Status</th></tr></thead><tbody>';
-
-        scripts.forEach(function(s) {
-          html += '<tr>' +
-            '<td><strong>' + escapeHtml(s.name || 'sem nome') + '</strong></td>' +
-            '<td>' + (s.executions || 0) + '</td>' +
-            '<td>' + escapeHtml(s.status || '—') + '</td>' +
-            '</tr>';
-        });
-
-        html += '</tbody></table>';
-        container.innerHTML = html;
-      } catch (e) {
-        container.innerHTML = '<div class="error">Erro ao interpretar resposta do servidor.</div>';
+    xhr.onreadystatechange = function() {
+      log('readyState: ' + xhr.readyState + ' (status: ' + xhr.status + ')');
+      if (xhr.readyState === 4) {
+        log('Resposta final: status ' + xhr.status, xhr.status === 200 ? 'ok' : 'err');
+        log('Resposta bruta: ' + xhr.responseText, 'info');
       }
     };
 
+    xhr.open('GET', '/api/scripts', true);
+    xhr.withCredentials = true;
+    xhr.timeout = 10000;
+
     xhr.onerror = function() {
-      document.getElementById('scriptsContainer').innerHTML = '<div class="error">Falha de rede ao carregar scripts.</div>';
+      log('Erro de rede (onerror disparado)', 'err');
+    };
+
+    xhr.ontimeout = function() {
+      log('Timeout da requisição', 'err');
     };
 
     xhr.send();
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
   </script>
 </body>
 </html>
