@@ -12,6 +12,7 @@ const axios = require('axios');
 const { DB, saveDb } = require('./database');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo_super_seguro';
