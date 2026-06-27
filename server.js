@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 // ============================================================
-// VALIDAÇÃO OBRIGATÓRIA DE AMBIENTE (sem fallbacks)
+// VALIDAÇÃO OBRIGATÓRIA DE AMBIENTE (sem RESET_SECRET)
 // ============================================================
 const requiredEnvVars = [
   'JWT_SECRET',
@@ -38,11 +38,14 @@ const PORT = process.env.PORT || 3000;
    ============================================================ */
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_SECRET = process.env.COOKIE_SECRET;
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || ''; // opcional
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_PASS = process.env.ADMIN_PASS;
+
+// 🔥 URL DE ADMIN PERSONALIZADA (difícil de adivinhar)
+const ADMIN_PATH = '/001010GGZEHENXylo9FrostNetaP7zQm2V8xKr6L';
 
 // Conexão com PostgreSQL (Render)
 const pool = new Pool({
@@ -205,7 +208,7 @@ async function getCountry(ip) {
    ============================================================ */
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.redirect('/painel?error=1');
+  if (!username || !password) return res.redirect(`${ADMIN_PATH}?error=1`);
 
   const result = await pool.query('SELECT * FROM admins WHERE LOWER(username) = LOWER($1)', [username]);
   const admin = result.rows[0];
@@ -213,11 +216,11 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
   if (!admin) {
     await bcrypt.compare(password, FAKE_HASH);
-    return res.redirect('/painel?error=1');
+    return res.redirect(`${ADMIN_PATH}?error=1`);
   }
 
   if (admin.locked_until && new Date(admin.locked_until) > new Date()) {
-    return res.redirect('/painel?error=locked');
+    return res.redirect(`${ADMIN_PATH}?error=locked`);
   }
 
   if (!bcrypt.compareSync(password, admin.password_hash)) {
@@ -226,18 +229,18 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     if (updated.rows[0].failed_attempts >= 5) {
       await pool.query('UPDATE admins SET locked_until = NOW() + INTERVAL \'15 minutes\', failed_attempts = 0 WHERE id = $1', [admin.id]);
     }
-    return res.redirect('/painel?error=1');
+    return res.redirect(`${ADMIN_PATH}?error=1`);
   }
 
   await pool.query('UPDATE admins SET failed_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1', [admin.id]);
   const token = jwt.sign({ id: admin.id, username: admin.username, role: admin.role }, JWT_SECRET, { expiresIn: '8h' });
   res.cookie('token', token, { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', signed: true });
-  return res.redirect('/painel/dashboard');
+  return res.redirect(`${ADMIN_PATH}/dashboard`);
 });
 
 app.get('/api/auth/logout', (req, res) => {
   res.clearCookie('token');
-  res.redirect('/painel');
+  res.redirect(ADMIN_PATH);
 });
 
 app.get('/api/auth/me', auth, async (req, res) => {
@@ -634,7 +637,6 @@ app.get('/api/backup', auth, masterOnly, async (req, res) => {
   }
 });
 
-// Backup automático a cada 6 horas
 setInterval(async () => {
   try {
     const scripts = (await pool.query('SELECT * FROM scripts')).rows;
@@ -716,8 +718,8 @@ app.get('/api/load/:shortId/:token', loaderLimiter, async (req, res) => {
    PÁGINAS
    ============================================================ */
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/painel', (req, res) => res.sendFile(path.join(__dirname, 'public/admin/login.html')));
-app.get('/painel/dashboard', auth, (req, res) => res.sendFile(path.join(__dirname, 'public/admin/dashboard.html')));
+app.get(ADMIN_PATH, (req, res) => res.sendFile(path.join(__dirname, 'public/admin/login.html')));
+app.get(`${ADMIN_PATH}/dashboard`, auth, (req, res) => res.sendFile(path.join(__dirname, 'public/admin/dashboard.html')));
 
 /* ============================================================
    INICIALIZAÇÃO
@@ -733,7 +735,6 @@ app.get('/painel/dashboard', auth, (req, res) => res.sendFile(path.join(__dirnam
     }
   } catch (err) {
     console.error('⚠️ PostgreSQL indisponível:', err.message);
-    console.error('O servidor continuará rodando, mas sem banco de dados.');
   }
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🪐 Astro rodando na porta ${PORT}`);
