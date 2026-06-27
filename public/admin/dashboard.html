@@ -506,8 +506,10 @@
     document.getElementById('scriptsTable').addEventListener('click', function(e) {
       const target = e.target.closest('button');
       if (!target) return;
+      console.log('Botão clicado:', target.className, target.dataset);
       if (target.classList.contains('edit-btn')) {
         const id = target.getAttribute('data-id');
+        console.log('Editando script:', id);
         if (id) editScript(id);
       } else if (target.classList.contains('duplicate-btn')) {
         const id = target.getAttribute('data-id');
@@ -542,6 +544,7 @@
 
     function editScript(id) {
       if (!id) return;
+      console.log('Carregando script:', id);
       api('/api/scripts/' + id).then(script => {
         document.getElementById('modalTitle').textContent = 'Editar Script';
         document.getElementById('scriptId').value = script.id;
@@ -550,7 +553,10 @@
         document.getElementById('scriptContent').value = script.content;
         document.getElementById('changelogFields').style.display = 'block';
         document.getElementById('scriptModal').classList.add('active');
-      }).catch(e => showToast('Erro ao carregar script', 'error'));
+      }).catch(e => {
+        console.error('Erro ao carregar script:', e);
+        showToast('Erro ao carregar script', 'error');
+      });
     }
 
     function saveScript() {
