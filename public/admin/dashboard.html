@@ -2,190 +2,101 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Astro — Painel</title>
+  <title>Astro — Scripts</title>
   <style>
-    :root {
-      --bg: #0a0a0a;
-      --surface: #111111;
-      --border: #1f1f1f;
-      --text: #ffffff;
-      --text2: #a0a0a0;
-      --primary: #6366f1;
-      --danger: #ef4444;
-      --success: #10b981;
-      --radius: 14px;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; }
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', system-ui, sans-serif;
-      display: flex;
-      height: 100vh;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #111;
+      border-radius: 12px;
       overflow: hidden;
     }
-    .sidebar {
-      width: 260px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 2rem 1.2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-    }
-    .sidebar-logo { font-size: 1.4rem; font-weight: 800; }
-    .sidebar-nav { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
-    .sidebar-nav button {
-      display: block;
-      width: 100%;
-      padding: 0.75rem 1rem;
-      border: none;
-      border-radius: 8px;
-      background: transparent;
-      color: var(--text2);
-      font-size: 0.95rem;
-      cursor: pointer;
+    th {
+      background: #1a1a1a;
+      padding: 0.8rem;
       text-align: left;
-      transition: all 0.2s;
+      color: #aaa;
+      font-size: 0.8rem;
+      text-transform: uppercase;
     }
-    .sidebar-nav button:hover { background: rgba(255,255,255,0.05); color: #fff; }
-    .sidebar-nav button.active { background: var(--primary); color: #fff; }
-    .logout-btn {
-      background: none;
-      border: 1px solid var(--danger);
-      color: var(--danger);
-      padding: 0.7rem;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
+    td {
+      padding: 0.8rem;
+      border-bottom: 1px solid #1f1f1f;
+    }
+    .empty {
       text-align: center;
+      color: #aaa;
+      padding: 2rem;
     }
-    .main { flex: 1; padding: 2rem; overflow-y: auto; }
-    .tab { display: none; }
-    .tab.active { display: block; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
-    .stat-label { font-size: 0.85rem; color: var(--text2); margin-bottom: 0.5rem; }
-    .stat-value { font-size: 2rem; font-weight: 800; }
-    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; }
-    th { background: #18181b; padding: 0.8rem; text-align: left; color: var(--text2); font-size: 0.8rem; text-transform: uppercase; }
-    td { padding: 0.8rem; border-bottom: 1px solid var(--border); }
-    .btn {
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 8px;
-      background: #fff;
-      color: #000;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 0.9rem;
+    .error {
+      text-align: center;
+      color: #f44;
+      padding: 2rem;
     }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
   </style>
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="sidebar-logo">Astro</div>
-    <nav class="sidebar-nav">
-      <button class="active" data-tab="dashboard">📊 Dashboard</button>
-      <button data-tab="scripts">📜 Scripts</button>
-    </nav>
-    <button class="logout-btn" onclick="window.location.href='/api/auth/logout'">🚪 Sair</button>
-  </aside>
-
-  <main class="main">
-    <div id="tab-dashboard" class="tab active">
-      <h1>Dashboard</h1>
-      <div class="stats-grid" id="statsCards">Carregando...</div>
-    </div>
-    <div id="tab-scripts" class="tab">
-      <h1>Scripts</h1>
-      <div id="scriptsTable">Carregando...</div>
-    </div>
-  </main>
+  <h1>📜 Scripts</h1>
+  <div id="scriptsContainer">Carregando scripts...</div>
 
   <script>
-    const ADMIN_PATH = '/painel';
-    let activeTab = 'dashboard';
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/scripts', true);
+    xhr.withCredentials = true;
 
-    function escapeHtml(s) {
-      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    xhr.onload = function() {
+      var container = document.getElementById('scriptsContainer');
 
-    function api(url, callback) {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.withCredentials = true;
-      xhr.onload = function() {
-        if (xhr.status === 401) { window.location.href = ADMIN_PATH; return; }
-        try {
-          const data = JSON.parse(xhr.responseText);
-          callback(null, data);
-        } catch (e) {
-          callback(e, null);
-        }
-      };
-      xhr.onerror = function() { callback(new Error('Rede'), null); };
-      xhr.send();
-    }
+      if (xhr.status === 401) {
+        window.location.href = '/painel';
+        return;
+      }
 
-    function loadDashboard() {
-      api('/api/stats', function(err, stats) {
-        if (err) {
-          document.getElementById('statsCards').textContent = 'Erro ao carregar.';
+      if (xhr.status !== 200) {
+        container.innerHTML = '<div class="error">Erro ' + xhr.status + ' ao carregar scripts.</div>';
+        return;
+      }
+
+      try {
+        var scripts = JSON.parse(xhr.responseText);
+
+        if (!Array.isArray(scripts) || scripts.length === 0) {
+          container.innerHTML = '<div class="empty">Nenhum script criado ainda.</div>';
           return;
         }
-        document.getElementById('statsCards').innerHTML = `
-          <div class="stat-card"><div class="stat-label">Total Scripts</div><div class="stat-value">${stats.totalScripts||0}</div></div>
-          <div class="stat-card"><div class="stat-label">Online</div><div class="stat-value" style="color:var(--success)">${stats.onlineScripts||0}</div></div>
-          <div class="stat-card"><div class="stat-label">Offline</div><div class="stat-value" style="color:var(--danger)">${stats.offlineScripts||0}</div></div>
-          <div class="stat-card"><div class="stat-label">Execuções</div><div class="stat-value">${stats.totalExecutions||0}</div></div>
-        `;
-      });
-    }
 
-    function loadScripts() {
-      api('/api/scripts', function(err, scripts) {
-        if (err) {
-          document.getElementById('scriptsTable').textContent = 'Erro ao carregar scripts.';
-          return;
-        }
-        if (!scripts.length) {
-          document.getElementById('scriptsTable').innerHTML = '<p style="color:var(--text2);">Nenhum script criado ainda.</p>';
-          return;
-        }
-        let html = '<table><thead><tr><th>Nome</th><th>Execuções</th><th>Status</th></tr></thead><tbody>';
+        var html = '<table><thead><tr><th>Nome</th><th>Execuções</th><th>Status</th></tr></thead><tbody>';
+
         scripts.forEach(function(s) {
-          html += `<tr>
-            <td><strong>${escapeHtml(s.name)}</strong></td>
-            <td>${s.executions||0}</td>
-            <td>${escapeHtml(s.status||'—')}</td>
-          </tr>`;
+          html += '<tr>' +
+            '<td><strong>' + escapeHtml(s.name || 'sem nome') + '</strong></td>' +
+            '<td>' + (s.executions || 0) + '</td>' +
+            '<td>' + escapeHtml(s.status || '—') + '</td>' +
+            '</tr>';
         });
+
         html += '</tbody></table>';
-        document.getElementById('scriptsTable').innerHTML = html;
-      });
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = '<div class="error">Erro ao interpretar resposta do servidor.</div>';
+      }
+    };
+
+    xhr.onerror = function() {
+      document.getElementById('scriptsContainer').innerHTML = '<div class="error">Falha de rede ao carregar scripts.</div>';
+    };
+
+    xhr.send();
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-
-    // Navegação por abas
-    document.querySelectorAll('.sidebar-nav button').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('.sidebar-nav button').forEach(function(b) { b.classList.remove('active'); });
-        btn.classList.add('active');
-        activeTab = btn.dataset.tab;
-        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-        document.getElementById('tab-' + activeTab).classList.add('active');
-        if (activeTab === 'dashboard') loadDashboard();
-        else if (activeTab === 'scripts') loadScripts();
-      });
-    });
-
-    // Inicial
-    api('/api/auth/me', function(err) {
-      if (err) { window.location.href = ADMIN_PATH; return; }
-      loadDashboard();
-    });
   </script>
 </body>
 </html>
