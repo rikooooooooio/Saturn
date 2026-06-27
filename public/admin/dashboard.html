@@ -2,69 +2,18 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Astro — Teste Abas</title>
+  <title>Astro — Teste de API</title>
   <style>
-    body { background: #0a0a0a; color: #fff; font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
-    .sidebar { width: 200px; background: #111; padding: 1rem; }
-    .sidebar button { display: block; width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; background: #222; border: none; color: #fff; cursor: pointer; }
-    .main { flex: 1; padding: 2rem; }
-    .error { color: #f44; }
+    body { background: #0a0a0a; color: #fff; font-family: sans-serif; padding: 2rem; }
+    a { display: block; margin: 1rem 0; color: #6366f1; font-size: 1.2rem; }
+    .note { color: #aaa; font-size: 0.9rem; }
   </style>
 </head>
 <body>
-  <div class="sidebar">
-    <button id="btnDashboard">Dashboard</button>
-    <button id="btnScripts">Scripts</button>
-  </div>
-  <div class="main">
-    <div id="content">Selecione uma aba</div>
-  </div>
-
-  <script>
-    var ADMIN_PATH = '/painel';
-
-    function showError(msg) {
-      document.getElementById('content').innerHTML = '<div class="error">' + msg + '</div>';
-    }
-
-    function loadScripts() {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/scripts', true);
-      xhr.withCredentials = true;
-      xhr.onload = function() {
-        if (xhr.status === 401) {
-          window.location.href = ADMIN_PATH;
-          return;
-        }
-        var data = JSON.parse(xhr.responseText);
-        if (Array.isArray(data)) {
-          var html = '<h2>Scripts (' + data.length + ')</h2>';
-          data.forEach(function(s) {
-            html += '<p>' + s.name + ' - ' + (s.executions||0) + ' execuções</p>';
-          });
-          document.getElementById('content').innerHTML = html;
-        } else {
-          showError('Resposta inesperada');
-        }
-      };
-      xhr.onerror = function() { showError('Erro de rede'); };
-      xhr.send();
-    }
-
-    function loadDashboard() {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/stats', true);
-      xhr.withCredentials = true;
-      xhr.onload = function() {
-        if (xhr.status === 401) { window.location.href = ADMIN_PATH; return; }
-        var data = JSON.parse(xhr.responseText);
-        document.getElementById('content').innerHTML = '<h2>Dashboard</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>';
-      };
-      xhr.send();
-    }
-
-    document.getElementById('btnScripts').addEventListener('click', loadScripts);
-    document.getElementById('btnDashboard').addEventListener('click', loadDashboard);
-  </script>
+  <h1>🔍 Teste das APIs do Astro</h1>
+  <p class="note">Após fazer login, clique nos links abaixo. Eles devem abrir uma nova aba com os dados JSON.</p>
+  <a href="/api/stats" target="_blank">📊 /api/stats</a>
+  <a href="/api/scripts" target="_blank">📜 /api/scripts</a>
+  <a href="/api/auth/me" target="_blank">👤 /api/auth/me</a>
 </body>
 </html>
