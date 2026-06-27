@@ -1,7 +1,7 @@
 {
   "name": "astro-storage",
-  "version": "6.0.0",
-  "description": "Astro Storage – Painel de scripts para Roblox com segurança avançada",
+  "version": "7.0.0",
+  "description": "Astro Storage – Painel de scripts para Roblox com PostgreSQL e segurança avançada",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -16,10 +16,9 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "qrcode": "^1.5.4",
-    "speakeasy": "^2.0.0",
+    "pg": "^8.13.0",
     "uuid": "^9.0.0"
   },
-  "keywords": ["roblox", "scripts", "loader", "astro", "security"],
+  "keywords": ["roblox", "scripts", "loader", "astro", "security", "postgresql"],
   "license": "MIT"
 }
