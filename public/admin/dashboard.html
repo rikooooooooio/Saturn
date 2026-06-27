@@ -254,7 +254,13 @@
     .toast.error { border-left: 3px solid var(--danger); }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem; }
+    .chart-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
 
     @media (max-width: 768px) {
       .sidebar { position: fixed; left: -280px; height: 100vh; }
@@ -292,6 +298,7 @@
   </aside>
 
   <main class="main">
+    <!-- Dashboard -->
     <div id="tab-dashboard" class="tab active">
       <div class="header"><h1>Dashboard</h1></div>
       <div class="stats-grid" id="statsCards">
@@ -299,9 +306,10 @@
       </div>
       <div class="chart-container"><canvas id="dailyChart" height="100"></canvas></div>
       <div class="chart-container"><h3>Execuções por Hora</h3><canvas id="hourlyChart" height="80"></canvas></div>
-      <div class="chart-container" id="popularScripts"></div>
+      <div class="chart-container" id="popularScripts"><h3>Scripts Mais Populares</h3><div class="skeleton" style="height:2rem;margin-bottom:0.5rem;"></div></div>
     </div>
 
+    <!-- Scripts -->
     <div id="tab-scripts" class="tab">
       <div class="header">
         <h1>Scripts</h1>
@@ -321,6 +329,7 @@
       </div>
     </div>
 
+    <!-- Segurança -->
     <div id="tab-security" class="tab">
       <div class="header"><h1>Segurança</h1></div>
       <div class="table-wrapper">
@@ -336,6 +345,7 @@
     </div>
   </main>
 
+  <!-- Modal Script -->
   <div id="scriptModal" class="modal">
     <div class="modal-box">
       <h2 id="modalTitle">Novo Script</h2>
@@ -367,6 +377,7 @@
     let allScripts = [];
     let dailyChart, hourlyChart;
 
+    // Toast
     function showToast(msg, type='success') {
       const c = document.getElementById('toastContainer');
       const t = document.createElement('div'); t.className = `toast ${type}`; t.textContent = msg;
@@ -375,6 +386,7 @@
 
     function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+    // API
     async function api(url, options={}) {
       const res = await fetch(url, { credentials:'include', ...options });
       if (res.status === 401) { window.location.href = ADMIN_PATH; throw new Error('Unauthorized'); }
@@ -392,28 +404,68 @@
           <div class="stat-card"><div class="stat-label">Offline</div><div class="stat-value" style="color:var(--danger)">${stats.offlineScripts}</div></div>
           <div class="stat-card"><div class="stat-label">Execuções</div><div class="stat-value">${stats.totalExecutions}</div></div>
         `;
+
         // Gráfico diário
         const ctx1 = document.getElementById('dailyChart').getContext('2d');
         if (dailyChart) dailyChart.destroy();
+        const gradient1 = ctx1.createLinearGradient(0, 0, 0, 200);
+        gradient1.addColorStop(0, 'rgba(99,102,241,0.4)');
+        gradient1.addColorStop(1, 'rgba(99,102,241,0.05)');
         dailyChart = new Chart(ctx1, {
-          type:'bar',
-          data:{
+          type: 'bar',
+          data: {
             labels: stats.daily.map(d => d.date.slice(5)),
-            datasets:[{ label:'Execuções', data: stats.daily.map(d => d.count), backgroundColor:'#6366f1' }]
+            datasets: [{
+              label: 'Execuções',
+              data: stats.daily.map(d => d.count),
+              backgroundColor: gradient1,
+              borderColor: '#6366f1',
+              borderWidth: 1,
+              borderRadius: 6,
+              borderSkipped: false,
+            }]
           },
-          options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ color:'#a0a0a0' } }, x:{ ticks:{ color:'#a0a0a0' } } } }
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { color: '#a0a0a0' }, grid: { color: '#1f1f1f' } },
+              x: { ticks: { color: '#a0a0a0' }, grid: { display: false } }
+            }
+          }
         });
+
         // Gráfico horário
         const ctx2 = document.getElementById('hourlyChart').getContext('2d');
         if (hourlyChart) hourlyChart.destroy();
+        const gradient2 = ctx2.createLinearGradient(0, 0, 0, 150);
+        gradient2.addColorStop(0, 'rgba(16,185,129,0.3)');
+        gradient2.addColorStop(1, 'rgba(16,185,129,0.02)');
         hourlyChart = new Chart(ctx2, {
-          type:'line',
-          data:{
+          type: 'line',
+          data: {
             labels: stats.hourly.map(h => h.hour + 'h'),
-            datasets:[{ label:'Execuções', data: stats.hourly.map(h => h.count), borderColor:'#10b981', tension:0.3 }]
+            datasets: [{
+              label: 'Execuções',
+              data: stats.hourly.map(h => h.count),
+              borderColor: '#10b981',
+              backgroundColor: gradient2,
+              fill: true,
+              tension: 0.4,
+              pointRadius: 2,
+              pointBackgroundColor: '#10b981',
+            }]
           },
-          options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ color:'#a0a0a0' } }, x:{ ticks:{ color:'#a0a0a0' } } } }
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { color: '#a0a0a0' }, grid: { color: '#1f1f1f' } },
+              x: { ticks: { color: '#a0a0a0', maxTicksLimit: 12 }, grid: { display: false } }
+            }
+          }
         });
+
         // Scripts populares
         const popDiv = document.getElementById('popularScripts');
         popDiv.innerHTML = '<h3>Scripts Mais Populares</h3>' + stats.popular.map(s => `
@@ -421,7 +473,7 @@
             <span>${escapeHtml(s.name)}</span>
             <span style="color:var(--success);">${s.executions||0} execuções</span>
           </div>
-        `).join('');
+        `).join('') || '<p>Nenhum script ainda.</p>';
       } catch(e) { showToast('Erro ao carregar dashboard', 'error'); }
     }
 
@@ -442,14 +494,29 @@
           <td>${s.executions||0}</td>
           <td><span class="badge badge-${s.status||'online'}">${s.status}</span></td>
           <td>
-            <button class="btn btn-sm" onclick="editScript('${s.id}')">✏️</button>
-            <button class="btn btn-sm" onclick="duplicateScript('${s.id}')">📄</button>
-            <button class="btn btn-sm" onclick="copyLoader('${s.short_id}','${s.token}')">📋</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')">🗑️</button>
+            <button class="btn btn-sm edit-btn" data-id="${s.id}">✏️</button>
+            <button class="btn btn-sm duplicate-btn" data-id="${s.id}">📄</button>
+            <button class="btn btn-sm copy-btn" data-short="${s.short_id}" data-token="${s.token}">📋</button>
+            <button class="btn btn-sm btn-danger delete-btn" data-id="${s.id}">🗑️</button>
           </td>
         </tr>
       `).join('');
     }
+
+    // Event delegation para ações da tabela
+    document.getElementById('scriptsTable').addEventListener('click', function(e) {
+      const target = e.target.closest('button');
+      if (!target) return;
+      if (target.classList.contains('edit-btn')) {
+        editScript(target.dataset.id);
+      } else if (target.classList.contains('duplicate-btn')) {
+        duplicateScript(target.dataset.id);
+      } else if (target.classList.contains('copy-btn')) {
+        copyLoader(target.dataset.short, target.dataset.token);
+      } else if (target.classList.contains('delete-btn')) {
+        deleteScript(target.dataset.id);
+      }
+    });
 
     function filterScripts() {
       const q = document.getElementById('searchInput').value.toLowerCase();
@@ -492,8 +559,7 @@
       const url = id ? '/api/scripts/' + id : '/api/scripts';
       try {
         await api(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, content, status }) });
-        // Se for edição e tiver changelog, envia
-        if (id && document.getElementById('changelogFields').style.display !== 'none') {
+        if (id) {
           const changelog = {
             title: document.getElementById('changelogTitle').value.trim(),
             description: document.getElementById('changelogDesc').value.trim()
@@ -576,7 +642,6 @@
         if (btn.dataset.tab === 'dashboard') loadDashboard();
         else if (btn.dataset.tab === 'scripts') loadScripts();
         else if (btn.dataset.tab === 'security') loadBlockedIPs();
-        // Fecha sidebar em mobile
         document.querySelector('.sidebar').classList.remove('open');
       });
     });
