@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Astro — Acesso Bloqueado</title>
+  <title>404 Not Found</title>
   <style>
     body {
-      background: #0a0a0a;
-      color: #fff;
-      font-family: 'Inter', system-ui, sans-serif;
+      background: #fff;
+      color: #333;
+      font-family: Arial, Helvetica, sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -17,33 +17,38 @@
       text-align: center;
     }
     .container {
-      background: #111;
-      border: 1px solid #1f1f1f;
-      border-radius: 16px;
-      padding: 3rem;
-      max-width: 400px;
-      width: 90%;
+      max-width: 500px;
+      padding: 2rem;
     }
-    .icon {
+    h1 {
       font-size: 3rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
+      color: #888;
+      font-weight: 400;
     }
-    h1 { margin-bottom: 0.5rem; }
-    p { color: #a0a0a0; font-size: 0.95rem; }
-    .footer {
-      margin-top: 1.5rem;
-      color: #444;
+    p {
+      color: #666;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 1.5rem 0;
+    }
+    .server-info {
       font-size: 0.8rem;
+      color: #aaa;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="icon">🔒</div>
-    <h1>Acesso Negado</h1>
-    <p>Este conteúdo é protegido e não pode ser acessado diretamente pelo navegador.</p>
-    <p>Utilize o loader fornecido pelo administrador.</p>
-    <div class="footer">Astro Security System</div>
+    <h1>404</h1>
+    <p>A página que você está procurando não foi encontrada.</p>
+    <p>Verifique o endereço digitado ou volte para a página inicial.</p>
+    <hr>
+    <div class="server-info">nginx/1.18.0 (Ubuntu)</div>
   </div>
 </body>
 </html>
