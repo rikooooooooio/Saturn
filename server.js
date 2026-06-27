@@ -44,7 +44,6 @@ app.use((req, res, next) => {
 DB.scripts = DB.scripts || [];
 DB.admins = DB.admins || [];
 DB.versions = DB.versions || [];
-DB.ipBlacklist = DB.ipBlacklist || [];
 
 // ------------------- HELPERS -------------------
 function shortId() { return crypto.randomBytes(8).toString('hex'); }
@@ -127,6 +126,13 @@ app.delete('/api/admin/block-ip/:ip', auth, (req, res) => {
 // ------------------- SCRIPTS CRUD -------------------
 app.get('/api/scripts', auth, (req, res) => res.json(DB.scripts));
 
+// ✅ ROTA PARA OBTER UM SCRIPT POR ID (usada pelo botão Editar)
+app.get('/api/scripts/:id', auth, (req, res) => {
+  const script = DB.scripts.find(s => s.id === req.params.id);
+  if (!script) return res.status(404).json({ error: 'Script não encontrado' });
+  res.json(script);
+});
+
 app.post('/api/scripts', auth, (req, res) => {
   const { name, content, status } = req.body;
   if (!name || !content) return res.status(400).json({ error: 'Nome e conteúdo obrigatórios' });
@@ -143,7 +149,7 @@ app.post('/api/scripts', auth, (req, res) => {
   res.status(201).json(s);
 });
 
-// Duplicar script
+// ✅ ROTA PARA DUPLICAR UM SCRIPT
 app.post('/api/scripts/:id/duplicate', auth, (req, res) => {
   const original = DB.scripts.find(s => s.id === req.params.id);
   if (!original) return res.status(404).json({ error: 'Script não encontrado' });
@@ -183,7 +189,7 @@ app.delete('/api/scripts/:id', auth, (req, res) => {
   res.json({ success: true });
 });
 
-// Importação em massa (bulk) — usada pelo botão "Importar .txt"
+// ✅ ROTA PARA IMPORTAÇÃO EM MASSA (.txt)
 app.post('/api/scripts/bulk', auth, (req, res) => {
   const { scripts } = req.body;
   if (!Array.isArray(scripts) || scripts.length === 0) return res.status(400).json({ error: 'Array de scripts obrigatório' });
